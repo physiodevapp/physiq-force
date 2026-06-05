@@ -1,0 +1,36 @@
+name: Deploy to PhysiQ hub
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout physiq-force
+        uses: actions/checkout@v4
+
+      - name: Checkout physiq hub
+        uses: actions/checkout@v4
+        with:
+          repository: physiodevapp/physiq
+          token: ${{ secrets.PHYSIQ_DEPLOY_TOKEN }}
+          path: physiq-hub
+
+      - name: Copy files to hub
+        run: |
+          rm -rf physiq-hub/force
+          mkdir -p physiq-hub/force/lib physiq-hub/force/icons
+          cp index.html app.js sw.js manifest.json favicon.svg .nojekyll physiq-hub/force/
+          cp icons/icon-192.png icons/icon-512.png physiq-hub/force/icons/
+          cp lib/session.js physiq-hub/force/lib/
+
+      - name: Commit and push
+        working-directory: physiq-hub
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A force/
+          git diff --cached --quiet || git commit -m "chore: update force from physiq-force@${{ github.sha }}"
+          git push
