@@ -23,7 +23,7 @@ jobs:
           rm -rf physiq-hub/force
           mkdir -p physiq-hub/force/lib physiq-hub/force/icons
           cp index.html app.js sw.js manifest.json favicon.svg .nojekyll physiq-hub/force/
-          cp icons/icon-192.png icons/icon-512.png physiq-hub/force/icons/
+          [ -d icons ] && cp icons/*.png physiq-hub/force/icons/ || true
           cp lib/session.js physiq-hub/force/lib/
 
       - name: Commit and push
