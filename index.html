@@ -15,15 +15,15 @@
 :root{
   --bg:#0a0d12;--surface:#111620;--surface2:#171e2e;--surface3:#1e2740;
   --border:#232d45;--border2:#2d3a58;
-  --accent:#fb923c;--accent2:#fb923c;--accent3:#fcd34d;
+  --accent:#fb923c;--accent3:#fcd34d;
   --text:#e8edf5;--text2:#8fa0bf;--text3:#5a6e8a;
-  --red:#ff6b6b;--orange:#fb923c;--green:#38d9a9;
-  --danger:#ff4757;--radius:12px;
+  --red:#ff6b6b;--green:#38d9a9;--danger:#ff4757;
+  --radius:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
 
-/* ── Header ─────────────────────────────────────────────────────────── */
+/* ── Header ──────────────────────────────────────────────────────────── */
 .app-header{position:fixed;top:0;left:0;right:0;z-index:100;height:64px;padding:0 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.75rem;background:rgba(10,13,18,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
 .logo{display:flex;align-items:baseline;gap:4px;flex-shrink:0;}
 .logo-main{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--text);letter-spacing:-.5px;}
@@ -31,80 +31,83 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .in-hub .logo-main::before{content:'‹';display:inline-block;margin-right:8px;opacity:.55;}
 .in-hub .logo-main:hover{opacity:.75;}
 .logo-sub{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--accent);letter-spacing:-.5px;}
-
 .header-right{display:flex;align-items:center;gap:.5rem;}
-
-/* Session chip */
-.session-chip{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface);font-size:.78rem;color:var(--text2);cursor:pointer;transition:border-color .2s;}
+.session-chip{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface);font-size:.78rem;color:var(--text2);cursor:pointer;transition:border-color .2s;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .session-chip:hover{border-color:var(--border2);}
-
-/* BLE badge */
 .ble-badge{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--text3);transition:all .3s;flex-shrink:0;font-size:.78rem;}
 .ble-badge[data-state="connected"]{color:var(--green);border-color:rgba(56,217,169,.35);background:rgba(56,217,169,.08);}
 .ble-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;}
 .ble-badge[data-state="connected"] .ble-dot{animation:blink 2s ease-in-out infinite;}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.btn-icon{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text3);transition:all .15s;flex-shrink:0;}
+.btn-icon:hover{border-color:var(--border2);color:var(--text2);}
 
-/* Reset btn */
-.btn-reset{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text3);transition:all .15s;}
-.btn-reset:hover{border-color:var(--border2);color:var(--text2);}
+/* ── Main ────────────────────────────────────────────────────────────── */
+.main{margin-top:64px;flex:1;padding:1.25rem;display:flex;flex-direction:column;gap:1rem;max-width:480px;width:100%;margin-left:auto;margin-right:auto;}
+.screen{display:flex;flex-direction:column;gap:1rem;}
 
-/* Session btn */
-.btn-session{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text3);transition:all .15s;}
-.btn-session:hover{border-color:var(--border2);color:var(--text2);}
-
-/* ── Main ───────────────────────────────────────────────────────────── */
-.main{margin-top:64px;flex:1;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;max-width:480px;width:100%;margin-left:auto;margin-right:auto;}
-
-/* ── Screens ────────────────────────────────────────────────────────── */
-.screen{display:flex;flex-direction:column;gap:1.25rem;}
-
-/* ── Cards ──────────────────────────────────────────────────────────── */
+/* ── Cards ───────────────────────────────────────────────────────────── */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;}
-.card-title{font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:1rem;}
+.card-title{font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:.875rem;}
+.card-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.875rem;}
+.card-title-row .card-title{margin-bottom:0;}
 
-/* ── Buttons ────────────────────────────────────────────────────────── */
+/* ── Buttons ─────────────────────────────────────────────────────────── */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.75rem 1.25rem;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-size:.9rem;font-weight:500;transition:all .15s;}
 .btn-primary{background:var(--accent);color:#0a0d12;}
 .btn-primary:hover{filter:brightness(1.1);}
 .btn-primary:active{transform:scale(.97);}
 .btn-secondary{background:var(--surface2);color:var(--text2);border:1px solid var(--border);}
 .btn-secondary:hover{border-color:var(--border2);color:var(--text);}
-.btn-danger{background:rgba(255,71,87,.12);color:var(--danger);border:1px solid rgba(255,71,87,.25);}
-.btn-danger:hover{background:rgba(255,71,87,.2);}
+.btn-danger{background:rgba(255,71,87,.1);color:var(--danger);border:1px solid rgba(255,71,87,.22);}
+.btn-danger:hover{background:rgba(255,71,87,.18);}
 .btn-full{width:100%;}
 
-/* ── Laterality selector ────────────────────────────────────────────── */
+/* ── Laterality selector ─────────────────────────────────────────────── */
 .laterality-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
-.laterality-grid .lat-btn-full{grid-column:1/-1;}
-.lat-btn{padding:.75rem;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit;font-size:.88rem;font-weight:500;transition:all .15s;text-align:center;}
+.lat-full{grid-column:1/-1;}
+.lat-btn{padding:.7rem;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit;font-size:.85rem;font-weight:500;transition:all .15s;text-align:center;}
 .lat-btn:hover{border-color:var(--border2);color:var(--text);}
 .lat-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(251,146,60,.08);}
 
-/* ── Reps input ─────────────────────────────────────────────────────── */
+/* ── Field rows ──────────────────────────────────────────────────────── */
 .field-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
-.field-label{font-size:.9rem;color:var(--text2);}
-.field-input{width:72px;padding:.5rem .75rem;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:'DM Mono',monospace;font-size:.95rem;text-align:center;}
+.field-row + .field-row{margin-top:.75rem;}
+.field-label{font-size:.88rem;color:var(--text2);}
+.field-input{width:72px;padding:.45rem .75rem;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:'DM Mono',monospace;font-size:.9rem;text-align:center;}
 .field-input:focus{outline:none;border-color:var(--accent);}
 
-/* ── Live measure ───────────────────────────────────────────────────── */
-.live-force-wrap{display:flex;flex-direction:column;align-items:center;gap:.25rem;padding:1.5rem 0;}
-.live-force-value{font-family:'DM Mono',monospace;font-size:4rem;font-weight:300;color:var(--text);line-height:1;}
-.live-force-unit{font-size:.85rem;color:var(--text3);}
+/* ── Live force ──────────────────────────────────────────────────────── */
+.live-force-wrap{display:flex;align-items:baseline;justify-content:center;gap:.4rem;padding:.75rem 0 .5rem;}
+.live-force-value{font-family:'DM Mono',monospace;font-size:3.5rem;font-weight:300;color:var(--text);line-height:1;}
+.live-force-unit{font-size:.9rem;color:var(--text3);margin-bottom:.2rem;}
 
-.side-banner{text-align:center;padding:.5rem 1rem;border-radius:8px;border:1px solid rgba(251,146,60,.3);background:rgba(251,146,60,.08);color:var(--accent);font-size:.85rem;font-weight:500;}
+/* ── Canvas ──────────────────────────────────────────────────────────── */
+.force-canvas{display:block;width:100%;height:160px;border-radius:8px;background:var(--surface2);}
 
-/* ── Reps list ──────────────────────────────────────────────────────── */
-.reps-list{list-style:none;display:flex;flex-direction:column;gap:.4rem;}
-.rep-item{display:grid;grid-template-columns:1.5rem 1fr 1fr 1fr;gap:.5rem;align-items:center;padding:.5rem .75rem;border-radius:8px;background:var(--surface2);font-size:.82rem;}
+/* ── Side banner ─────────────────────────────────────────────────────── */
+.side-banner{text-align:center;padding:.5rem 1rem;border-radius:8px;border:1px solid rgba(251,146,60,.3);background:rgba(251,146,60,.07);color:var(--accent);font-size:.85rem;font-weight:500;}
+
+/* ── Reps list ───────────────────────────────────────────────────────── */
+.reps-list{list-style:none;display:flex;flex-direction:column;gap:.35rem;}
+.rep-item{display:grid;grid-template-columns:1.5rem 1fr 1fr 1fr;align-items:center;gap:.5rem;padding:.45rem .75rem;border-radius:8px;background:var(--surface2);font-size:.8rem;}
 .rep-n{color:var(--text3);font-family:'DM Mono',monospace;}
 .rep-peak{color:var(--text);font-weight:500;}
 .rep-rfd,.rep-tt{color:var(--text2);}
 
-/* ── Results ────────────────────────────────────────────────────────── */
-.ai-badge{display:flex;flex-direction:column;align-items:center;gap:.25rem;padding:1.25rem;border-radius:10px;border:1px solid var(--border);}
-.ai-value{font-family:'DM Mono',monospace;font-size:2.5rem;font-weight:300;}
-.ai-label{font-size:.75rem;color:var(--text3);}
+/* ── Results tables ──────────────────────────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;font-size:.84rem;}
+.results-table th{text-align:left;color:var(--text3);font-weight:500;padding:.4rem .6rem;border-bottom:1px solid var(--border);}
+.results-table td{padding:.5rem .6rem;color:var(--text);}
+.results-table tr:not(:last-child) td{border-bottom:1px solid var(--border);}
+.results-table .row-label{color:var(--text2);font-size:.8rem;}
+.results-table .best-row td{color:var(--accent);border-top:1px solid var(--border);}
+.reps-detail{margin-top:.75rem;}
+
+/* ── AI badge ────────────────────────────────────────────────────────── */
+.ai-badge{display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:1.1rem;border-radius:10px;border:1px solid var(--border);}
+.ai-value{font-family:'DM Mono',monospace;font-size:2.25rem;font-weight:300;}
+.ai-formula{font-size:.72rem;color:var(--text3);text-align:center;}
 .ai-badge[data-level="green"]{border-color:rgba(56,217,169,.35);background:rgba(56,217,169,.06);}
 .ai-badge[data-level="green"] .ai-value{color:var(--green);}
 .ai-badge[data-level="yellow"]{border-color:rgba(252,211,77,.35);background:rgba(252,211,77,.06);}
@@ -112,28 +115,22 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .ai-badge[data-level="red"]{border-color:rgba(255,71,87,.35);background:rgba(255,71,87,.06);}
 .ai-badge[data-level="red"] .ai-value{color:var(--danger);}
 
-.results-table{width:100%;border-collapse:collapse;font-size:.85rem;}
-.results-table th{text-align:left;color:var(--text3);font-weight:500;padding:.4rem .5rem;border-bottom:1px solid var(--border);}
-.results-table td{padding:.5rem;color:var(--text);}
-.results-table tr:not(:last-child) td{border-bottom:1px solid var(--border);}
+/* ── Battery warning ─────────────────────────────────────────────────── */
+.battery-warning{padding:.55rem 1rem;border-radius:8px;border:1px solid rgba(252,211,77,.3);background:rgba(252,211,77,.07);color:var(--accent3);font-size:.82rem;display:flex;align-items:center;gap:.5rem;}
 
-/* ── No BLE screen ──────────────────────────────────────────────────── */
-.no-ble-msg{text-align:center;padding:2rem 1rem;}
-.no-ble-msg h2{font-size:1.1rem;margin-bottom:.75rem;color:var(--text);}
-.no-ble-msg p{font-size:.85rem;color:var(--text2);line-height:1.6;}
-.no-ble-msg a{color:var(--accent);}
+/* ── No BLE ──────────────────────────────────────────────────────────── */
+.no-ble-msg{text-align:center;padding:1.5rem;}
+.no-ble-msg h2{font-size:1.05rem;margin-bottom:.6rem;}
+.no-ble-msg p{font-size:.85rem;color:var(--text2);line-height:1.65;}
 
-/* ── Battery warning ────────────────────────────────────────────────── */
-.battery-warning{padding:.6rem 1rem;border-radius:8px;border:1px solid rgba(252,211,77,.3);background:rgba(252,211,77,.08);color:var(--accent3);font-size:.82rem;display:flex;align-items:center;gap:.5rem;}
-
-/* ── Dialog ─────────────────────────────────────────────────────────── */
-dialog{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;color:var(--text);width:min(400px,calc(100vw - 2rem));max-height:80dvh;overflow-y:auto;}
+/* ── Dialog ──────────────────────────────────────────────────────────── */
+dialog{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;color:var(--text);width:min(400px,calc(100vw - 2rem));}
 dialog::backdrop{background:rgba(0,0,0,.6);}
 .dialog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;}
 .dialog-title{font-size:1rem;font-weight:600;}
 .dialog-close{width:32px;height:32px;border-radius:50%;border:none;background:transparent;cursor:pointer;color:var(--text3);display:flex;align-items:center;justify-content:center;}
 .dialog-close:hover{color:var(--text);background:var(--surface2);}
-.field-group{display:flex;flex-direction:column;gap:.4rem;margin-bottom:1rem;}
+.field-group{display:flex;flex-direction:column;gap:.4rem;}
 .field-group label{font-size:.8rem;color:var(--text3);}
 .text-input{width:100%;padding:.6rem .75rem;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:.9rem;}
 .text-input:focus{outline:none;border-color:var(--accent);}
@@ -153,16 +150,14 @@ dialog::backdrop{background:rgba(0,0,0,.6);}
       <span class="ble-dot"></span>
       <span class="ble-label">Desconectado</span>
     </div>
-    <button id="btn-reset" class="btn-reset" title="Reiniciar">
+    <button id="btn-reset" class="btn-icon" title="Reiniciar">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-        <path d="M3 3v5h5"/>
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
       </svg>
     </button>
-    <button id="btn-session" class="btn-session" title="Sesión">
+    <button id="btn-session" class="btn-icon" title="Sesión">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-        <circle cx="12" cy="7" r="4"/>
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
       </svg>
     </button>
   </div>
@@ -172,65 +167,71 @@ dialog::backdrop{background:rgba(0,0,0,.6);}
 <main class="main">
 
   <div id="battery-warning" class="battery-warning" hidden>
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7H1v10h22V7z"/><path d="M23 11v2"/></svg>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="7" width="18" height="10" rx="2"/><path d="M23 11v2"/></svg>
     Batería baja
   </div>
 
-  <!-- ── Screen: no BLE ─────────────────────────────────────────────────── -->
+  <!-- ── No BLE ──────────────────────────────────────────────────────────── -->
   <div id="screen-no-ble" class="screen" hidden>
-    <div class="no-ble-msg card">
+    <div class="card no-ble-msg">
       <h2>Bluetooth no disponible</h2>
-      <p>Esta app requiere Web Bluetooth API.<br>
-         Usa <strong>Chrome o Edge</strong> en escritorio o Android.<br>
+      <p>Esta app requiere <strong>Web Bluetooth API</strong>.<br>
+         Usa Chrome o Edge en escritorio o Android.<br>
          Safari y Firefox no son compatibles.</p>
     </div>
   </div>
 
-  <!-- ── Screen: connect ───────────────────────────────────────────────── -->
+  <!-- ── Connect ─────────────────────────────────────────────────────────── -->
   <div id="screen-connect" class="screen" hidden>
     <div class="card">
       <p class="card-title">Dispositivo</p>
-      <p style="font-size:.88rem;color:var(--text2);margin-bottom:1.25rem;line-height:1.6;">
+      <p style="font-size:.85rem;color:var(--text2);margin-bottom:1.1rem;line-height:1.65;">
         Enciende el Progressor y pulsa conectar.<br>
-        Mantén el dispositivo cerca del teléfono.
+        Mantén el dispositivo cerca.
       </p>
       <button id="btn-connect" class="btn btn-primary btn-full">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6l4-4 4 4"/><path d="M12 2v10.3"/><path d="M8 18l4 4 4-4"/><path d="M12 22V11.7"/></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6l4-4 4 4"/><path d="M12 2v10.3"/><path d="M8 18l4 4 4-4"/><path d="M12 22V11.7"/></svg>
         Conectar Progressor
       </button>
     </div>
   </div>
 
-  <!-- ── Screen: config ────────────────────────────────────────────────── -->
+  <!-- ── Config ──────────────────────────────────────────────────────────── -->
   <div id="screen-config" class="screen" hidden>
+
     <div class="card">
       <p class="card-title">Lateralidad</p>
       <div class="laterality-grid">
         <button class="lat-btn active" data-laterality="single">Sin lateralidad</button>
-        <button class="lat-btn lat-btn-full" data-laterality="comparison">Comparar lados (AI)</button>
+        <button class="lat-btn lat-full" data-laterality="comparison">Comparar lados (AI)</button>
         <button class="lat-btn" data-laterality="left">Izquierdo</button>
         <button class="lat-btn" data-laterality="right">Derecho</button>
       </div>
     </div>
 
     <div class="card">
-      <p class="card-title">Repeticiones</p>
+      <p class="card-title">Configuración del test</p>
       <div class="field-row">
-        <span class="field-label">Nº de contracciones</span>
+        <span class="field-label">Contracciones por lado</span>
         <input id="reps-input" class="field-input" type="number" min="1" max="10" value="3">
+      </div>
+      <div class="field-row">
+        <span class="field-label">Umbral de detección (kg)</span>
+        <input id="threshold-input" class="field-input" type="number" min="0.5" max="20" step="0.5" value="2.0">
       </div>
     </div>
 
     <button id="btn-start-test" class="btn btn-primary btn-full">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
       Iniciar test
     </button>
-
     <button id="btn-disconnect" class="btn btn-secondary btn-full">Desconectar</button>
+
   </div>
 
-  <!-- ── Screen: measure ───────────────────────────────────────────────── -->
+  <!-- ── Measure ─────────────────────────────────────────────────────────── -->
   <div id="screen-measure" class="screen" hidden>
+
     <div id="side-banner" class="side-banner" hidden></div>
 
     <div class="card">
@@ -238,44 +239,46 @@ dialog::backdrop{background:rgba(0,0,0,.6);}
         <span id="live-force" class="live-force-value">0.0</span>
         <span class="live-force-unit">kg</span>
       </div>
+      <canvas id="force-canvas" class="force-canvas"></canvas>
     </div>
 
     <div class="card">
-      <p class="card-title">
-        Contracciones
-        <span style="float:right;font-variant-numeric:tabular-nums;" id="reps-counter">0 / 3</span>
-      </p>
+      <div class="card-title-row">
+        <span class="card-title">Contracciones</span>
+        <span id="reps-counter" style="font-family:'DM Mono',monospace;font-size:.82rem;color:var(--text3);">0 / 3</span>
+      </div>
       <ul id="reps-list" class="reps-list">
-        <li style="font-size:.82rem;color:var(--text3);padding:.25rem 0;">
-          Pico (kg) &nbsp;·&nbsp; RFD (kg/s) &nbsp;·&nbsp; T. al pico (ms)
+        <li style="font-size:.78rem;color:var(--text3);padding:.2rem 0 .4rem;">
+          Nº &nbsp;·&nbsp; Pico (kg) &nbsp;·&nbsp; RFD (kg/s) &nbsp;·&nbsp; T. al pico (ms)
         </li>
       </ul>
     </div>
 
     <button id="btn-stop-test" class="btn btn-danger btn-full">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
       Finalizar lado
     </button>
+
   </div>
 
-  <!-- ── Screen: results ───────────────────────────────────────────────── -->
+  <!-- ── Results ─────────────────────────────────────────────────────────── -->
   <div id="screen-results" class="screen" hidden>
+
     <div id="ai-section" class="card" hidden>
       <p class="card-title">Índice de asimetría</p>
       <div id="ai-badge" class="ai-badge">
-        <span class="ai-value" id="ai-value">—</span>
-        <span class="ai-label">AI = (fuerte − débil) / fuerte × 100</span>
+        <span id="ai-value" class="ai-value">—</span>
+        <span class="ai-formula">AI = (fuerte − débil) / fuerte × 100</span>
       </div>
     </div>
 
     <div class="card">
-      <p class="card-title">Resultados</p>
+      <p class="card-title">Resultados del test</p>
       <div id="results-content"></div>
     </div>
 
-    <button id="btn-new-test" class="btn btn-primary btn-full" onclick="document.getElementById('screen-config').hidden=false;document.getElementById('screen-results').hidden=true;">
-      Nuevo test
-    </button>
+    <button id="btn-new-test" class="btn btn-primary btn-full">Nuevo test</button>
+
   </div>
 
 </main>
