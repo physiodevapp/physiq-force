@@ -6,12 +6,12 @@ const DATA_CHAR          = '7e4e1702-1ea6-40c9-9dcc-13d34ffead57';
 const CTRL_CHAR          = '7e4e1703-1ea6-40c9-9dcc-13d34ffead57';
 
 const CMD = {
-  TARE:             100,
-  START_WEIGHT:     101,
-  STOP_WEIGHT:      102,
-  GET_VERSION:      107,
-  SLEEP:            110,
-  GET_BATTERY:      111,
+  TARE:         100,
+  START_WEIGHT: 101,
+  STOP_WEIGHT:  102,
+  GET_VERSION:  107,
+  SLEEP:        110,
+  GET_BATTERY:  111,
 };
 
 const RES = {
@@ -26,20 +26,24 @@ const DEBOUNCE_MS     = 300;
 const MIN_DURATION_MS = 150;
 
 // ── BLE state ─────────────────────────────────────────────────────────────────
-let _device   = null;
-let _dataChar = null;
-let _ctrlChar = null;
+let _device    = null;
+let _dataChar  = null;
+let _ctrlChar  = null;
 let _measuring = false;
+let _liveMode  = false;
+let _batteryPct = null;
 
 // ── Chart state ───────────────────────────────────────────────────────────────
-let _chartPoints  = [];   // { kg, t } — t = ms since _measureStart
-let _measureStart = 0;    // performance.now() when measurement began
-let _rafId        = null;
+let _chartPoints      = [];
+let _measureStart     = 0;
+let _rafId            = null;
+let _liveChartPoints  = [];
+let _liveMeasureStart = 0;
+let _liveRafId        = null;
 
 // ── Contraction state machine ─────────────────────────────────────────────────
-// States: 'idle' | 'active' | 'debounce'
 let _cState   = 'idle';
-let _cBuffer  = [];         // { kg, t } accumulator for current contraction
+let _cBuffer  = [];
 let _debTimer = null;
 
 // ── Measurement buffers ───────────────────────────────────────────────────────
@@ -48,10 +52,12 @@ let _leftContractions  = [];
 let _rightContractions = [];
 
 // ── Config ────────────────────────────────────────────────────────────────────
-let _thresholdKg = 2.0;
-let _repsTarget  = 3;
-let _laterality  = 'single';
-let _activeSide  = null;
+let _thresholdKg  = 2.0;
+let _repsTarget   = 3;
+let _laterality   = 'single';
+let _activeSide   = null;
+let _currentTest  = 'peak';
+let _rfdCountdown = 3;
 
 // ── Session ───────────────────────────────────────────────────────────────────
 const _sessionCh  = new BroadcastChannel('physiq-session');
@@ -69,11 +75,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── BLE support ───────────────────────────────────────────────────────────────
 function _checkBLESupport() {
-  _showScreen(navigator.bluetooth ? 'screen-connect' : 'screen-no-ble');
+  _showScreen(navigator.bluetooth ? 'screen-menu' : 'screen-no-ble');
+  _setBLEStatus('disconnected');
 }
 
 // ── BLE connect / disconnect ──────────────────────────────────────────────────
 async function bleConnect() {
+  _setBLEStatus('connecting');
   try {
     _device = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: 'Progressor' }],
@@ -91,26 +99,32 @@ async function bleConnect() {
 
     await _writeCmd(CMD.GET_BATTERY);
     await _writeCmd(CMD.GET_VERSION);
+    await _writeCmd(CMD.START_WEIGHT);
 
     _setBLEStatus('connected');
-    _showScreen('screen-config');
+    _updateBLEDialog();
   } catch (err) {
     if (err.name !== 'NotFoundError') console.warn('BLE:', err);
     _setBLEStatus('disconnected');
+    _updateBLEDialog();
   }
 }
 
 async function bleDisconnect() {
   if (_measuring) await _stopMeasurement();
+  if (_liveMode)  await _stopLive();
+  await _writeCmd(CMD.SLEEP);
   _device?.gatt?.disconnect();
 }
 
 function _onDisconnect() {
   _device = null; _dataChar = null; _ctrlChar = null;
   _measuring = false;
+  _liveMode  = false;
   _stopChartLoop();
+  _stopLiveChartLoop();
   _setBLEStatus('disconnected');
-  _showScreen('screen-connect');
+  _updateBLEDialog();
 }
 
 async function _writeCmd(cmd) {
@@ -128,12 +142,27 @@ function _onData(e) {
     for (let i = 0; i < count; i++) {
       _onSample(Math.max(0, dv.getFloat32(2 + i * 8, true)));
     }
-  } else if (type === RES.LOW_PWR_WARNING) {
-    document.getElementById('battery-warning').hidden = false;
+  } else if (type === RES.CMD_RESPONSE) {
+    if (dv.byteLength >= 3 && dv.getUint8(1) === CMD.GET_BATTERY) {
+      _batteryPct = dv.getUint8(2);
+      _renderBattery(_batteryPct);
+    }
   }
 }
 
-// ── Measurement control ───────────────────────────────────────────────────────
+// ── Sample dispatcher ─────────────────────────────────────────────────────────
+function _onSample(kg) {
+  const dialogForce = document.getElementById('ble-live-force');
+  if (dialogForce) dialogForce.textContent = kg.toFixed(1);
+
+  if (_liveMode) {
+    _onLiveSample(kg);
+  } else if (_measuring) {
+    _onMeasureSample(kg);
+  }
+}
+
+// ── Measurement mode ──────────────────────────────────────────────────────────
 async function startMeasurement() {
   _contractions = [];
   _chartPoints  = [];
@@ -144,11 +173,10 @@ async function startMeasurement() {
   _measureStart = performance.now();
 
   _renderLiveReset();
-  _initCanvas();
+  _initCanvas('force-canvas');
   _startChartLoop();
 
   await _writeCmd(CMD.TARE);
-  await _writeCmd(CMD.START_WEIGHT);
 }
 
 async function _stopMeasurement() {
@@ -157,40 +185,56 @@ async function _stopMeasurement() {
   clearTimeout(_debTimer);
   if (_cState === 'active' || _cState === 'debounce') _finalizeContraction();
   _cState = 'idle';
-  await _writeCmd(CMD.STOP_WEIGHT);
   _stopChartLoop();
 }
 
-// ── Contraction detection ─────────────────────────────────────────────────────
-function _onSample(kg) {
+function _onMeasureSample(kg) {
   const t = performance.now() - _measureStart;
 
   _chartPoints.push({ kg, t });
   const cutoff = t - CHART_WINDOW_MS;
   while (_chartPoints.length > 1 && _chartPoints[0].t < cutoff) _chartPoints.shift();
 
-  _renderLiveValue(kg);
+  const el = document.getElementById('live-force');
+  if (el) el.textContent = kg.toFixed(1);
 
   if (_cState === 'idle') {
-    if (kg >= _thresholdKg) {
-      _cState  = 'active';
-      _cBuffer = [{ kg, t }];
-    }
+    if (kg >= _thresholdKg) { _cState = 'active'; _cBuffer = [{ kg, t }]; }
   } else if (_cState === 'active') {
     _cBuffer.push({ kg, t });
-    if (kg < _thresholdKg) {
-      _cState = 'debounce';
-      _debTimer = setTimeout(_finalizeContraction, DEBOUNCE_MS);
-    }
+    if (kg < _thresholdKg) { _cState = 'debounce'; _debTimer = setTimeout(_finalizeContraction, DEBOUNCE_MS); }
   } else if (_cState === 'debounce') {
     _cBuffer.push({ kg, t });
-    if (kg >= _thresholdKg) {
-      clearTimeout(_debTimer);
-      _cState = 'active';
-    }
+    if (kg >= _thresholdKg) { clearTimeout(_debTimer); _cState = 'active'; }
   }
 }
 
+// ── Live mode ─────────────────────────────────────────────────────────────────
+async function _startLive() {
+  _liveChartPoints  = [];
+  _liveMeasureStart = performance.now();
+  _liveMode         = true;
+  _initCanvas('force-canvas-live');
+  _startLiveChartLoop();
+  await _writeCmd(CMD.TARE);
+}
+
+async function _stopLive() {
+  if (!_liveMode) return;
+  _liveMode = false;
+  _stopLiveChartLoop();
+}
+
+function _onLiveSample(kg) {
+  const t = performance.now() - _liveMeasureStart;
+  _liveChartPoints.push({ kg, t });
+  const cutoff = t - CHART_WINDOW_MS;
+  while (_liveChartPoints.length > 1 && _liveChartPoints[0].t < cutoff) _liveChartPoints.shift();
+  const el = document.getElementById('live-force-live');
+  if (el) el.textContent = kg.toFixed(1);
+}
+
+// ── Contraction detection ─────────────────────────────────────────────────────
 function _finalizeContraction() {
   const buf = _cBuffer;
   _cBuffer = [];
@@ -219,8 +263,8 @@ function _finalizeContraction() {
 }
 
 // ── Canvas chart ──────────────────────────────────────────────────────────────
-function _initCanvas() {
-  const canvas = document.getElementById('force-canvas');
+function _initCanvas(id) {
+  const canvas = document.getElementById(id);
   if (!canvas) return;
   const dpr = window.devicePixelRatio || 1;
   canvas.width  = canvas.clientWidth  * dpr;
@@ -229,18 +273,30 @@ function _initCanvas() {
 
 function _startChartLoop() {
   cancelAnimationFrame(_rafId);
-  const tick = () => { _drawChart(); if (_measuring) _rafId = requestAnimationFrame(tick); };
+  const tick = () => { _drawChart('force-canvas', _chartPoints, _measureStart); if (_measuring) _rafId = requestAnimationFrame(tick); };
   _rafId = requestAnimationFrame(tick);
 }
 
 function _stopChartLoop() {
   cancelAnimationFrame(_rafId);
   _rafId = null;
-  _drawChart();
+  _drawChart('force-canvas', _chartPoints, _measureStart);
 }
 
-function _drawChart() {
-  const canvas = document.getElementById('force-canvas');
+function _startLiveChartLoop() {
+  cancelAnimationFrame(_liveRafId);
+  const tick = () => { _drawChart('force-canvas-live', _liveChartPoints, _liveMeasureStart); if (_liveMode) _liveRafId = requestAnimationFrame(tick); };
+  _liveRafId = requestAnimationFrame(tick);
+}
+
+function _stopLiveChartLoop() {
+  cancelAnimationFrame(_liveRafId);
+  _liveRafId = null;
+  _drawChart('force-canvas-live', _liveChartPoints, _liveMeasureStart);
+}
+
+function _drawChart(canvasId, points, measureStart) {
+  const canvas = document.getElementById(canvasId);
   if (!canvas || !canvas.width) return;
   const ctx = canvas.getContext('2d');
   const W   = canvas.width;
@@ -252,16 +308,15 @@ function _drawChart() {
   const ch = H - mt - mb;
 
   ctx.clearRect(0, 0, W, H);
-  if (_chartPoints.length < 2) return;
+  if (points.length < 2) return;
 
-  const now    = performance.now() - _measureStart;
+  const now    = performance.now() - measureStart;
   const tStart = now - CHART_WINDOW_MS;
-  const maxKg  = Math.max(_thresholdKg * 2.5, ..._chartPoints.map(s => s.kg), 20) * 1.1;
+  const maxKg  = Math.max(_thresholdKg * 2.5, ...points.map(s => s.kg), 20) * 1.1;
 
   const xOf = t  => ml + ((t  - tStart) / CHART_WINDOW_MS) * cw;
   const yOf = kg => mt + ch * (1 - kg / maxKg);
 
-  // grid
   const gridStep = maxKg > 50 ? 20 : maxKg > 25 ? 10 : maxKg > 10 ? 5 : 2;
   ctx.font      = `${9 * dpr}px "DM Mono", monospace`;
   ctx.textAlign = 'right';
@@ -274,17 +329,14 @@ function _drawChart() {
     ctx.fillText(kg, ml - 4 * dpr, y + 3 * dpr);
   }
 
-  // threshold line
   ctx.strokeStyle = 'rgba(251,146,60,0.5)';
   ctx.lineWidth   = 1.5 * dpr;
   ctx.setLineDash([5 * dpr, 4 * dpr]);
-  const yThr = yOf(_thresholdKg);
-  ctx.beginPath(); ctx.moveTo(ml, yThr); ctx.lineTo(ml + cw, yThr); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ml, yOf(_thresholdKg)); ctx.lineTo(ml + cw, yOf(_thresholdKg)); ctx.stroke();
   ctx.setLineDash([]);
 
-  // active contraction fill
-  const visible = _chartPoints.filter(s => s.t >= tStart);
-  if (_cState !== 'idle' && _cBuffer.length > 0) {
+  const visible = points.filter(s => s.t >= tStart);
+  if (_measuring && _cState !== 'idle' && _cBuffer.length > 0) {
     const cb = _cBuffer.filter(s => s.t >= tStart);
     if (cb.length > 0) {
       ctx.fillStyle = 'rgba(251,146,60,0.07)';
@@ -297,7 +349,6 @@ function _drawChart() {
     }
   }
 
-  // force line
   if (visible.length < 2) return;
   ctx.strokeStyle = '#e8edf5';
   ctx.lineWidth   = 1.5 * dpr;
@@ -309,20 +360,35 @@ function _drawChart() {
   });
   ctx.stroke();
 
-  // x-axis time labels
   ctx.fillStyle = 'rgba(90,110,138,0.7)';
   ctx.textAlign = 'center';
   for (let sec = 0; sec <= CHART_WINDOW_MS / 1000; sec += 2) {
     const t = tStart + sec * 1000;
     if (t < 0) continue;
-    const x = xOf(t);
-    ctx.fillText(`${sec}s`, x, mt + ch + 18 * dpr);
+    ctx.fillText(`${sec}s`, xOf(t), mt + ch + 18 * dpr);
   }
 }
 
 window.addEventListener('resize', () => {
-  if (_measuring) _initCanvas();
+  if (_measuring) _initCanvas('force-canvas');
+  if (_liveMode)  _initCanvas('force-canvas-live');
 });
+
+// ── Countdown ─────────────────────────────────────────────────────────────────
+function _runCountdown(seconds) {
+  return new Promise(resolve => {
+    if (seconds <= 0) { resolve(); return; }
+    _showScreen('screen-countdown');
+    const el = document.getElementById('countdown-num');
+    let n = seconds;
+    if (el) el.textContent = n;
+    const iv = setInterval(() => {
+      n--;
+      if (n <= 0) { clearInterval(iv); resolve(); return; }
+      if (el) el.textContent = n;
+    }, 1000);
+  });
+}
 
 // ── Comparison & asymmetry ────────────────────────────────────────────────────
 function _calcAI(left, right) {
@@ -340,7 +406,7 @@ function _buildResults() {
     const lPeak = _bestOf(_leftContractions,  'peak');
     const rPeak = _bestOf(_rightContractions, 'peak');
     return {
-      testType:       'isometric',
+      testType:       _currentTest,
       laterality:     'comparison',
       sides: {
         left:  { peak: lPeak, rfd: _bestOf(_leftContractions,  'rfd'), ttPeak: _leftContractions.find(c => c.peak === lPeak)?.ttPeak  ?? null, reps: _leftContractions.map(c => ({ peak: c.peak, rfd: c.rfd, ttPeak: c.ttPeak })) },
@@ -352,7 +418,7 @@ function _buildResults() {
   }
   const bestPeak = _bestOf(_contractions, 'peak');
   return {
-    testType:   'isometric',
+    testType:   _currentTest,
     laterality: _laterality,
     side:       _activeSide,
     peak:       bestPeak,
@@ -365,7 +431,7 @@ function _buildResults() {
 
 // ── Session protocol ──────────────────────────────────────────────────────────
 _sessionCh.onmessage = ({ data }) => {
-  if (data.type === 'SESSION_PATIENT') { _patient = data.patient ?? ''; _renderPatientChip(); }
+  if (data.type === 'SESSION_PATIENT') { _patient = data.patient ?? ''; _renderSessionState(); }
   if (data.type === 'SESSION_CLEAR')   _softReset();
 };
 
@@ -379,16 +445,17 @@ function _saveResults(payload) {
 
 function _softReset() {
   if (_measuring) _stopMeasurement();
+  if (_liveMode)  _stopLive();
   _contractions = []; _leftContractions = []; _rightContractions = [];
-  _chartPoints  = [];
+  _chartPoints  = []; _liveChartPoints  = [];
   _savedResults = null;
   _patient      = '';
   writeSession({ force: null, patient: '' });
   _sessionCh.postMessage({ type: 'SESSION_FORCE', force: null });
-  _renderPatientChip();
-  const inp = document.getElementById('patient-name');
-  if (inp) inp.value = '';
-  _showScreen(_device?.gatt?.connected ? 'screen-config' : 'screen-connect');
+  _sessionCh.postMessage({ type: 'SESSION_PATIENT', patient: '' });
+  _syncPatientInputs('');
+  _renderSessionState();
+  _showScreen('screen-menu');
 }
 
 function _loadSession() {
@@ -396,59 +463,202 @@ function _loadSession() {
     if (!s) return;
     _patient      = s.patient ?? '';
     _savedResults = s.force   ?? null;
-    _renderPatientChip();
-    const inp = document.getElementById('patient-name');
-    if (inp && _patient) inp.value = _patient;
+    _syncPatientInputs(_patient);
+    _renderSessionState();
   });
 }
 
 // ── UI bindings ───────────────────────────────────────────────────────────────
 function _bindUI() {
-  document.getElementById('btn-connect').addEventListener('click', bleConnect);
-  document.getElementById('btn-disconnect').addEventListener('click', bleDisconnect);
+  // BLE badge → open BLE dialog
+  document.getElementById('btn-ble').addEventListener('click', () => {
+    _updateBLEDialog();
+    document.getElementById('dialog-ble').showModal();
+  });
 
-  document.querySelectorAll('[data-laterality]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      _laterality = btn.dataset.laterality;
-      document.querySelectorAll('[data-laterality]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+  // BLE dialog: scan
+  document.getElementById('btn-scan').addEventListener('click', async () => {
+    document.getElementById('dialog-ble').close();
+    await bleConnect();
+    _updateBLEDialog();
+    if (_device?.gatt?.connected) document.getElementById('dialog-ble').showModal();
+  });
+  // BLE dialog: tare
+  document.getElementById('btn-tare').addEventListener('click', () => _writeCmd(CMD.TARE));
+  // BLE dialog: disconnect
+  document.getElementById('btn-disconnect').addEventListener('click', async () => {
+    document.getElementById('dialog-ble').close();
+    await bleDisconnect();
+  });
+  // BLE dialog: close
+  document.getElementById('btn-ble-close').addEventListener('click', () => {
+    document.getElementById('dialog-ble').close();
+  });
+
+  // Menu cards
+  document.querySelectorAll('.menu-card[data-test]').forEach(card => {
+    card.addEventListener('click', () => {
+      if (!_device?.gatt?.connected) {
+        _updateBLEDialog();
+        document.getElementById('dialog-ble').showModal();
+        return;
+      }
+      _openTest(card.dataset.test);
     });
   });
 
+  // Back buttons
+  document.querySelectorAll('.btn-back[data-back]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (_liveMode) await _stopLive();
+      _showScreen(btn.dataset.back);
+    });
+  });
+
+  // Mode toggles — peak config
+  document.querySelectorAll('#screen-config-peak .mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#screen-config-peak .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _laterality = btn.dataset.laterality;
+    });
+  });
+  // Mode toggles — rfd config
+  document.querySelectorAll('#screen-config-rfd .mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#screen-config-rfd .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _laterality = btn.dataset.laterality;
+    });
+  });
+
+  // Peak config inputs
   document.getElementById('reps-input').addEventListener('change', e => {
     _repsTarget = Math.max(1, Math.min(10, parseInt(e.target.value) || 3));
     e.target.value = _repsTarget;
   });
-
   document.getElementById('threshold-input').addEventListener('change', e => {
     _thresholdKg = Math.max(0.5, Math.min(20, parseFloat(e.target.value) || 2.0));
     e.target.value = _thresholdKg.toFixed(1);
   });
 
-  document.getElementById('btn-start-test').addEventListener('click', _startTest);
-  document.getElementById('btn-stop-test').addEventListener('click', _endCurrentSide);
-  document.getElementById('btn-reset').addEventListener('click', _softReset);
-  document.getElementById('btn-new-test').addEventListener('click', () => _showScreen('screen-config'));
+  // RFD config inputs
+  document.getElementById('rfd-reps-input').addEventListener('change', e => {
+    _repsTarget = Math.max(1, Math.min(10, parseInt(e.target.value) || 3));
+    e.target.value = _repsTarget;
+  });
+  document.getElementById('rfd-threshold-input').addEventListener('change', e => {
+    _thresholdKg = Math.max(0.5, Math.min(20, parseFloat(e.target.value) || 2.0));
+    e.target.value = _thresholdKg.toFixed(1);
+  });
+  document.getElementById('rfd-countdown-input').addEventListener('change', e => {
+    _rfdCountdown = Math.max(0, Math.min(10, parseInt(e.target.value) || 0));
+    e.target.value = _rfdCountdown;
+  });
 
+  // Start buttons
+  document.getElementById('btn-start-peak').addEventListener('click', _startTest);
+  document.getElementById('btn-start-rfd').addEventListener('click', async () => {
+    await _runCountdown(_rfdCountdown);
+    _startTest();
+  });
+
+  // Stop buttons
+  document.getElementById('btn-stop-test').addEventListener('click', _endCurrentSide);
+  document.getElementById('btn-stop-live').addEventListener('click', async () => {
+    await _stopLive();
+    _showScreen('screen-menu');
+  });
+
+  // Results buttons
+  document.getElementById('btn-new-test').addEventListener('click', () => {
+    _showScreen(_currentTest === 'rfd' ? 'screen-config-rfd' : 'screen-config-peak');
+  });
+  document.getElementById('btn-results-menu').addEventListener('click', () => _showScreen('screen-menu'));
+
+  // Reset
+  document.getElementById('btn-reset').addEventListener('click', _softReset);
+
+  // Session icon (person) → opens session dialog
   document.getElementById('btn-session').addEventListener('click', () => {
     document.getElementById('dialog-session').showModal();
   });
   document.getElementById('btn-session-close').addEventListener('click', () => {
     document.getElementById('dialog-session').close();
   });
+  document.getElementById('btn-clear-session').addEventListener('click', () => {
+    document.getElementById('dialog-session').close();
+    _softReset();
+  });
 
+  // Patient name — menu field (primary)
+  document.getElementById('menu-patient-name').addEventListener('input', e => {
+    _patient = e.target.value.trim();
+    document.getElementById('patient-name').value = e.target.value;
+    _persistPatient();
+  });
+  // Patient name — session dialog field (secondary, keeps in sync)
+  document.getElementById('patient-name').addEventListener('input', e => {
+    _patient = e.target.value.trim();
+    document.getElementById('menu-patient-name').value = e.target.value;
+    _persistPatient();
+  });
+
+  // Global / translate btn
+  document.getElementById('btn-global').addEventListener('click', () => {
+    const banner = document.getElementById('translate-banner');
+    banner.classList.toggle('visible');
+  });
+  document.getElementById('translate-banner-close').addEventListener('click', () => {
+    document.getElementById('translate-banner').classList.remove('visible');
+  });
+
+  // Hub logo
   document.querySelector('.logo-main')?.addEventListener('click', () => {
     if (document.body.classList.contains('in-hub'))
       window.parent.postMessage({ type: 'PHYSIQ_GO_HOME' }, '*');
   });
+}
 
-  document.getElementById('patient-name')?.addEventListener('input', e => {
-    _patient = e.target.value.trim();
-    writeSession({ patient: _patient }).then(() =>
-      _sessionCh.postMessage({ type: 'SESSION_PATIENT', patient: _patient })
-    );
-    _renderPatientChip();
-  });
+// ── Patient helpers ───────────────────────────────────────────────────────────
+function _persistPatient() {
+  writeSession({ patient: _patient }).then(() =>
+    _sessionCh.postMessage({ type: 'SESSION_PATIENT', patient: _patient })
+  );
+  _renderSessionState();
+}
+
+function _syncPatientInputs(value) {
+  const menuInput    = document.getElementById('menu-patient-name');
+  const dialogInput  = document.getElementById('patient-name');
+  if (menuInput)   menuInput.value   = value;
+  if (dialogInput) dialogInput.value = value;
+}
+
+function _renderSessionState() {
+  const btn    = document.getElementById('btn-session');
+  const avatar = document.getElementById('patient-avatar');
+  const hasPatient = !!_patient;
+
+  if (btn) btn.classList.toggle('active', hasPatient);
+  if (avatar) avatar.classList.toggle('has-patient', hasPatient);
+}
+
+// ── Test routing ──────────────────────────────────────────────────────────────
+function _openTest(test) {
+  _currentTest = test;
+  if (test === 'peak') {
+    const active = document.querySelector('#screen-config-peak .mode-btn.active');
+    _laterality = active?.dataset.laterality ?? 'single';
+    _showScreen('screen-config-peak');
+  } else if (test === 'rfd') {
+    const active = document.querySelector('#screen-config-rfd .mode-btn.active');
+    _laterality = active?.dataset.laterality ?? 'single';
+    _showScreen('screen-config-rfd');
+  } else if (test === 'live') {
+    _showScreen('screen-live');
+    _startLive();
+  }
 }
 
 // ── Test flow ─────────────────────────────────────────────────────────────────
@@ -457,11 +667,10 @@ function _startTest() {
   _rightContractions = [];
   _contractions      = [];
 
-  if (_laterality === 'comparison') {
-    _activeSide = 'left';
-  } else {
-    _activeSide = _laterality === 'left' ? 'left' : _laterality === 'right' ? 'right' : null;
-  }
+  _activeSide = _laterality === 'comparison' ? 'left'
+              : _laterality === 'left'        ? 'left'
+              : _laterality === 'right'       ? 'right'
+              : null;
 
   _showScreen('screen-measure');
   _renderSideBanner(_activeSide);
@@ -497,22 +706,38 @@ function _showScreen(id) {
 
 // ── Render helpers ────────────────────────────────────────────────────────────
 function _setBLEStatus(state) {
-  const badge = document.getElementById('ble-badge');
+  const badge = document.getElementById('btn-ble');
   if (!badge) return;
-  badge.dataset.state = state;
-  badge.querySelector('.ble-label').textContent = state === 'connected' ? 'Conectado' : 'Desconectado';
+  badge.classList.remove('active', 'pending', 'error');
+  if (state === 'connected')    badge.classList.add('active');
+  if (state !== 'connected')    badge.classList.add('pending');
 }
 
-function _renderPatientChip() {
-  const chip = document.getElementById('session-chip');
-  if (!chip) return;
-  chip.textContent = _patient || '';
-  chip.hidden = !_patient;
+function _updateBLEDialog() {
+  const connected = !!_device?.gatt?.connected;
+  document.getElementById('ble-state-disconnected').hidden = connected;
+  document.getElementById('ble-state-connected').hidden    = !connected;
+  document.getElementById('ble-dialog-title').textContent  = connected ? 'Dispositivo' : 'Conectar dispositivo';
+  if (connected && _batteryPct !== null) _renderBattery(_batteryPct);
 }
 
-function _renderLiveValue(kg) {
-  const el = document.getElementById('live-force');
-  if (el) el.textContent = kg.toFixed(1);
+function _renderBattery(pct) {
+  const pctEl  = document.getElementById('battery-pct');
+  const fillEl = document.getElementById('battery-fill');
+  if (pctEl) pctEl.textContent = `${pct} %`;
+  if (fillEl) {
+    const maxW  = 22;
+    const color = pct > 40 ? '#38d9a9' : pct > 20 ? '#fcd34d' : '#ff4757';
+    fillEl.setAttribute('width', Math.max(1, Math.round(maxW * pct / 100)));
+    fillEl.setAttribute('fill', color);
+    const svg = document.getElementById('battery-svg');
+    if (svg) {
+      svg.querySelectorAll('[stroke]').forEach(el => {
+        if (el !== fillEl) el.setAttribute('stroke', color);
+      });
+      if (pctEl) pctEl.style.color = color;
+    }
+  }
 }
 
 function _renderLiveReset() {
@@ -605,10 +830,9 @@ function _renderComparisonTable(payload, container) {
 
 function _renderRepsTable(reps, container) {
   if (!reps.length) return;
-  const table   = document.createElement('table');
+  const table = document.createElement('table');
   table.className = 'results-table';
-  const header  = `<thead><tr><th>Rep</th><th>Pico (kg)</th><th>RFD (kg/s)</th><th>T. pico (ms)</th></tr></thead>`;
-  const tbody   = document.createElement('tbody');
+  const tbody = document.createElement('tbody');
   reps.forEach((r, i) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${i + 1}</td><td>${r.peak.toFixed(1)}</td><td>${r.rfd.toFixed(0)}</td><td>${r.ttPeak.toFixed(0)}</td>`;
@@ -623,7 +847,7 @@ function _renderRepsTable(reps, container) {
   bestTr.className = 'best-row';
   bestTr.innerHTML = `<td>Mejor</td><td><strong>${best.peak.toFixed(1)}</strong></td><td><strong>${best.rfd.toFixed(0)}</strong></td><td><strong>${best.ttPeak.toFixed(0)}</strong></td>`;
   tbody.appendChild(bestTr);
-  table.innerHTML = header;
+  table.innerHTML = `<thead><tr><th>Rep</th><th>Pico (kg)</th><th>RFD (kg/s)</th><th>T. pico (ms)</th></tr></thead>`;
   table.appendChild(tbody);
   container.appendChild(table);
 }

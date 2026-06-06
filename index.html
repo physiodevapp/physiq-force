@@ -129,8 +129,6 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .menu-card-title{font-size:.95rem;font-weight:500;color:var(--text);margin-bottom:.2rem;}
 .menu-card-desc{font-size:.78rem;color:var(--text2);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .menu-card-arrow{color:var(--text3);flex-shrink:0;}
-.menu-ble-hint{display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.55rem 1rem;border-radius:8px;border:1px solid rgba(251,146,60,.25);background:rgba(251,146,60,.06);color:var(--accent);font-size:.8rem;cursor:pointer;transition:border-color .2s;font-family:inherit;}
-.menu-ble-hint:hover{border-color:rgba(251,146,60,.45);}
 
 /* ── Config nav ──────────────────────────────────────────────────────── */
 .config-nav{display:flex;align-items:center;gap:.6rem;}
@@ -203,9 +201,6 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .ai-badge[data-level="red"]{border-color:rgba(255,71,87,.35);background:rgba(255,71,87,.06);}
 .ai-badge[data-level="red"] .ai-value{color:var(--danger);}
 
-/* ── Battery warning ─────────────────────────────────────────────────── */
-.battery-warning{padding:.55rem 1rem;border-radius:8px;border:1px solid rgba(252,211,77,.3);background:rgba(252,211,77,.07);color:var(--accent3);font-size:.82rem;display:flex;align-items:center;gap:.5rem;}
-
 /* ── No BLE ──────────────────────────────────────────────────────────── */
 .no-ble-msg{text-align:center;padding:1.5rem;}
 .no-ble-msg h2{font-size:1.05rem;margin-bottom:.6rem;}
@@ -263,7 +258,7 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
     </button>
     <button id="btn-reset" class="btn-reset" title="Reiniciar">↺ <span class="btn-reset-text">Reiniciar</span></button>
     <button id="btn-global" class="btn-global" title="Idioma / Translate">🌐<div class="translate-tooltip">Long-press or right-click → Translate to English</div></button>
-    <button id="btn-ble" class="sensor-badge" title="Dispositivo Bluetooth">
+    <button id="btn-ble" class="sensor-badge pending" title="Dispositivo Bluetooth">
       <svg width="12" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>
       <span class="sensor-text">Sensor</span>
     </button>
@@ -272,11 +267,6 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 
 <!-- ── Main ────────────────────────────────────────────────────────────────── -->
 <main class="main">
-
-  <div id="battery-warning" class="battery-warning" hidden>
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="7" width="18" height="10" rx="2"/><path d="M23 11v2"/></svg>
-    Batería baja
-  </div>
 
   <!-- ── No BLE ──────────────────────────────────────────────────────────── -->
   <div id="screen-no-ble" class="screen" hidden>
@@ -303,14 +293,6 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
         <input id="menu-patient-name" class="text-input" type="text" placeholder="Nombre del paciente" autocomplete="off">
       </div>
     </div>
-
-    <button id="menu-ble-hint" class="menu-ble-hint" hidden>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4.5 12h10"/><path d="M9 7l5 5-5 5"/>
-        <path d="M14.5 5l5 7-5 7"/>
-      </svg>
-      Conecta el Progressor para comenzar
-    </button>
 
     <p class="menu-section-label">Evaluación</p>
 
