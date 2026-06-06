@@ -32,8 +32,9 @@ let _ctrlChar  = null;
 let _measuring = false;
 let _liveMode  = false;
 let _batteryPct = null;
-let _lastRawKg  = 0;
-let _tareOffset = 0;
+let _lastRawKg    = 0;
+let _tareOffset   = 0;
+let _peakDisplayKg = 0;
 
 // ── Chart state ───────────────────────────────────────────────────────────────
 let _chartPoints      = [];
@@ -121,10 +122,11 @@ async function bleDisconnect() {
 
 function _onDisconnect() {
   _device = null; _dataChar = null; _ctrlChar = null;
-  _measuring  = false;
-  _liveMode   = false;
-  _lastRawKg  = 0;
-  _tareOffset = 0;
+  _measuring     = false;
+  _liveMode      = false;
+  _lastRawKg     = 0;
+  _tareOffset    = 0;
+  _peakDisplayKg = 0;
   _stopChartLoop();
   _stopLiveChartLoop();
   _setBLEStatus('disconnected');
@@ -178,9 +180,10 @@ async function startMeasurement() {
   _measureStart = performance.now();
 
   _renderLiveReset();
-  _initCanvas(`${_currentTest}-canvas`);
-  _startChartLoop();
-
+  if (_currentTest !== 'peak') {
+    _initCanvas(`${_currentTest}-canvas`);
+    _startChartLoop();
+  }
   _doSoftTare();
 }
 
@@ -202,6 +205,8 @@ function _onMeasureSample(kg) {
 
   const el = document.getElementById(`${_currentTest}-live-force`);
   if (el) el.textContent = kg.toFixed(1);
+
+  if (_currentTest === 'peak') _updateForceBar(kg);
 
   if (_cState === 'idle') {
     if (kg >= _thresholdKg) { _cState = 'active'; _cBuffer = [{ kg, t }]; }
@@ -376,8 +381,8 @@ function _drawChart(canvasId, points, measureStart) {
 }
 
 window.addEventListener('resize', () => {
-  if (_measuring) _initCanvas(`${_currentTest}-canvas`);
-  if (_liveMode)  _initCanvas('force-canvas-live');
+  if (_measuring && _currentTest !== 'peak') _initCanvas(`${_currentTest}-canvas`);
+  if (_liveMode) _initCanvas('force-canvas-live');
 });
 
 // ── Countdown ─────────────────────────────────────────────────────────────────
@@ -454,8 +459,9 @@ function _softReset() {
   if (_liveMode)  _stopLive();
   _contractions = []; _leftContractions = []; _rightContractions = [];
   _chartPoints  = []; _liveChartPoints  = [];
-  _lastRawKg    = 0;
-  _tareOffset   = 0;
+  _lastRawKg     = 0;
+  _tareOffset    = 0;
+  _peakDisplayKg = 0;
   _savedResults = null;
   _patient      = '';
   writeSession({ force: null, patient: '' });
@@ -526,7 +532,8 @@ function _bindUI() {
   // Back buttons
   document.querySelectorAll('.btn-back[data-back]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (_liveMode) await _stopLive();
+      if (_measuring) await _stopMeasurement();
+      if (_liveMode)  await _stopLive();
       _showScreen(btn.dataset.back);
     });
   });
@@ -581,6 +588,14 @@ function _bindUI() {
 
   // Stop buttons
   document.getElementById('btn-stop-peak').addEventListener('click', _endCurrentSide);
+  document.getElementById('btn-peak-restore').addEventListener('click', async () => {
+    await _stopMeasurement();
+    _contractions  = [];
+    _peakDisplayKg = 0;
+    _renderLiveReset();
+    _updateRepsCounter();
+    startMeasurement();
+  });
   document.getElementById('btn-stop-rfd').addEventListener('click', _endCurrentSide);
   document.getElementById('btn-stop-live').addEventListener('click', async () => {
     await _stopLive();
@@ -719,6 +734,26 @@ async function _endCurrentSide() {
   _renderFinalResults(payload);
 }
 
+// ── Force bar (peak visualization) ───────────────────────────────────────────
+function _updateForceBar(kg) {
+  if (kg > _peakDisplayKg) _peakDisplayKg = kg;
+
+  const maxKg      = Math.max(_thresholdKg * 2.5, _peakDisplayKg * 1.2, 20);
+  const currentPct = Math.min((kg / maxKg) * 100, 100);
+  const peakPct    = Math.min((_peakDisplayKg / maxKg) * 100, 100);
+
+  const fill = document.getElementById('peak-bar-fill');
+  if (fill) fill.style.height = currentPct + '%';
+
+  const peakLine  = document.getElementById('peak-peak-line');
+  const peakLabel = document.getElementById('peak-peak-label');
+  if (peakLine) {
+    peakLine.hidden = _peakDisplayKg === 0;
+    peakLine.style.bottom = peakPct + '%';
+  }
+  if (peakLabel) peakLabel.textContent = _peakDisplayKg.toFixed(1) + ' kg';
+}
+
 // ── Screen manager ────────────────────────────────────────────────────────────
 function _showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== id; });
@@ -776,6 +811,13 @@ function _renderLiveReset() {
   const el = document.getElementById(`${_currentTest}-live-force`);
   if (el) el.textContent = '0.0';
   document.getElementById(`${_currentTest}-reps-list`)?.replaceChildren();
+  if (_currentTest === 'peak') {
+    _peakDisplayKg = 0;
+    const fill = document.getElementById('peak-bar-fill');
+    if (fill) fill.style.height = '0%';
+    const line = document.getElementById('peak-peak-line');
+    if (line) line.hidden = true;
+  }
 }
 
 function _renderRepRow(n, rep) {

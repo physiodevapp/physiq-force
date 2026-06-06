@@ -93,8 +93,8 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 @media(min-width:769px){.translate-banner{display:none;}}
 
 /* ── Main ────────────────────────────────────────────────────────────── */
-.main{margin-top:64px;flex:1;padding:1.25rem;display:flex;flex-direction:column;gap:.875rem;max-width:480px;width:100%;margin-left:auto;margin-right:auto;transition:margin-top .25s ease;}
-.screen{display:flex;flex-direction:column;gap:.875rem;}
+.main{margin-top:64px;flex:1;padding:1rem;display:flex;flex-direction:column;gap:.875rem;max-width:480px;width:100%;margin-left:auto;margin-right:auto;transition:margin-top .25s ease;}
+.screen{flex:1;display:flex;flex-direction:column;gap:.875rem;}
 
 /* ── Cards ───────────────────────────────────────────────────────────── */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;}
@@ -167,6 +167,19 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 
 /* ── Canvas ──────────────────────────────────────────────────────────── */
 .force-canvas{display:block;width:100%;height:160px;border-radius:8px;background:var(--surface2);}
+
+/* ── Force meter (peak bar visualization) ───────────────────────────── */
+#peak-section-measure{flex:1;display:flex;flex-direction:column;gap:.875rem;}
+.force-meter{flex:1;display:flex;flex-direction:column;gap:.75rem;}
+.force-meter-readout{display:flex;align-items:baseline;justify-content:center;gap:.4rem;padding:.5rem 0;}
+.force-bar-wrap{flex:1;position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;min-height:200px;}
+.force-bar-fill{position:absolute;bottom:0;left:0;right:0;height:0%;background:var(--surface2);transition:height 40ms linear;}
+.force-peak-line{position:absolute;left:0;right:0;display:flex;align-items:center;gap:.5rem;padding:0 .875rem;transform:translateY(-50%);}
+.force-peak-label{font-family:'DM Mono',monospace;font-size:.9rem;color:var(--accent);white-space:nowrap;}
+.force-peak-track{flex:1;height:2px;background:var(--accent);}
+.force-meter-footer{display:flex;justify-content:flex-end;}
+.force-reps-count{font-family:'DM Mono',monospace;font-size:.82rem;color:var(--text3);}
+.measure-actions{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
 
 /* ── Side banner ─────────────────────────────────────────────────────── */
 .side-banner{text-align:center;padding:.5rem 1rem;border-radius:8px;border:1px solid rgba(251,146,60,.3);background:rgba(251,146,60,.07);color:var(--accent);font-size:.85rem;font-weight:500;}
@@ -278,12 +291,8 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
   <!-- ── Menu ───────────────────────────────────────────────────────────── -->
   <div id="screen-menu" class="screen" hidden>
 
-    <div class="card">
-      <div class="field-group">
-        <label for="menu-patient-name">Paciente</label>
-        <input id="menu-patient-name" class="text-input" type="text" placeholder="Nombre (opcional)" autocomplete="off">
-      </div>
-    </div>
+    <label class="menu-section-label" for="menu-patient-name">Paciente</label>
+    <input id="menu-patient-name" class="text-input" type="text" placeholder="Nombre (opcional)" autocomplete="off">
 
     <p class="menu-section-label">Evaluación</p>
 
@@ -367,26 +376,26 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
     <!-- Measure -->
     <div id="peak-section-measure" hidden>
       <div id="peak-side-banner" class="side-banner" hidden></div>
-      <div class="card">
-        <div class="live-force-wrap">
+      <div class="force-meter">
+        <div class="force-meter-readout">
           <span id="peak-live-force" class="live-force-value">0.0</span>
           <span class="live-force-unit">kg</span>
         </div>
-        <canvas id="peak-canvas" class="force-canvas"></canvas>
-      </div>
-      <div class="card">
-        <div class="card-title-row">
-          <span class="card-title">Contracciones</span>
-          <span id="peak-reps-counter" style="font-family:'DM Mono',monospace;font-size:.82rem;color:var(--text3);">0 / 3</span>
+        <div class="force-bar-wrap">
+          <div id="peak-bar-fill" class="force-bar-fill"></div>
+          <div id="peak-peak-line" class="force-peak-line" hidden>
+            <span id="peak-peak-label" class="force-peak-label"></span>
+            <div class="force-peak-track"></div>
+          </div>
         </div>
-        <ul id="peak-reps-list" class="reps-list">
-          <li style="font-size:.78rem;color:var(--text3);padding:.2rem 0 .4rem;">Nº &nbsp;·&nbsp; Pico (kg) &nbsp;·&nbsp; RFD (kg/s) &nbsp;·&nbsp; T. al pico (ms)</li>
-        </ul>
+        <div class="force-meter-footer">
+          <span id="peak-reps-counter" class="force-reps-count">0 / 3</span>
+        </div>
       </div>
-      <button id="btn-stop-peak" class="btn btn-danger btn-full">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-        Finalizar lado
-      </button>
+      <div class="measure-actions">
+        <button id="btn-peak-restore" class="btn btn-secondary">Restaurar</button>
+        <button id="btn-stop-peak" class="btn btn-primary">Guardar</button>
+      </div>
     </div>
 
     <!-- Results -->
