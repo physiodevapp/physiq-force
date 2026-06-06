@@ -17,34 +17,83 @@
   --border:#232d45;--border2:#2d3a58;
   --accent:#fb923c;--accent3:#fcd34d;
   --text:#e8edf5;--text2:#8fa0bf;--text3:#5a6e8a;
-  --red:#ff6b6b;--green:#38d9a9;--danger:#ff4757;
+  --red:#ff6b6b;--orange:#ff9f43;--green:#38d9a9;--danger:#ff4757;
   --radius:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
 
 /* ── Header ──────────────────────────────────────────────────────────── */
-.app-header{position:fixed;top:0;left:0;right:0;z-index:100;height:64px;padding:0 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.75rem;background:rgba(10,13,18,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.app-header{position:fixed;top:0;left:0;right:0;z-index:100;height:64px;padding:0 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:rgba(10,13,18,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
 .logo{display:flex;align-items:baseline;gap:4px;flex-shrink:0;}
 .logo-main{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--text);letter-spacing:-.5px;}
+@keyframes hub-back-hint{0%{transform:translateX(0)}35%{transform:translateX(-5px)}65%{transform:translateX(1px)}100%{transform:translateX(0)}}
 .in-hub .logo-main{cursor:pointer;transition:opacity .15s;}
-.in-hub .logo-main::before{content:'‹';display:inline-block;margin-right:8px;opacity:.55;}
+.in-hub .logo-main::before{content:'‹';display:inline-block;margin-right:8px;opacity:.55;animation:hub-back-hint .7s ease-out .5s 1 both;}
 .in-hub .logo-main:hover{opacity:.75;}
 .logo-sub{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--accent);letter-spacing:-.5px;}
+.logo-sub-initial{display:none;}
 .header-right{display:flex;align-items:center;gap:.5rem;}
-.session-chip{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface);font-size:.78rem;color:var(--text2);cursor:pointer;transition:border-color .2s;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.session-chip:hover{border-color:var(--border2);}
-.ble-badge{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--text3);transition:all .3s;flex-shrink:0;font-size:.78rem;}
-.ble-badge[data-state="connected"]{color:var(--green);border-color:rgba(56,217,169,.35);background:rgba(56,217,169,.08);}
-.ble-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;}
-.ble-badge[data-state="connected"] .ble-dot{animation:blink 2s ease-in-out infinite;}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
-.btn-icon{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text3);transition:all .15s;flex-shrink:0;}
-.btn-icon:hover{border-color:var(--border2);color:var(--text2);}
+
+/* session btn — hidden until active */
+.session-btn{display:none;background:transparent;border:1px solid var(--border);cursor:pointer;color:var(--accent);width:34px;height:34px;border-radius:50%;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
+.session-btn.active{display:flex;}
+.session-btn:hover{border-color:var(--border2);}
+
+/* global / translate btn */
+.btn-global{position:relative;background:transparent;border:none;color:var(--text3);font-size:1rem;cursor:pointer;padding:4px 8px;border-radius:6px;transition:color .2s;line-height:1;flex-shrink:0;}
+.btn-global:hover{color:var(--text2);}
+.translate-tooltip{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;white-space:nowrap;font-size:.75rem;color:var(--text2);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.6;opacity:0;pointer-events:none;transition:opacity .2s;z-index:200;}
+.btn-global:hover .translate-tooltip{opacity:1;}
+.translate-banner{position:fixed;top:64px;left:0;right:0;z-index:210;background:var(--surface2);border-bottom:1px solid var(--border);padding:9px 1rem;display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--text2);opacity:0;pointer-events:none;transform:translateY(-100%);transition:opacity .25s ease,transform .25s ease;}
+.translate-banner.visible{opacity:1;pointer-events:auto;transform:translateY(0);}
+.translate-banner-close{margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:1.1rem;padding:0 4px;line-height:1;}
+
+/* reset btn */
+.btn-reset{background:transparent;border:1px solid var(--border2);color:var(--text2);padding:6px 14px;border-radius:6px;font-family:'Outfit',sans-serif;font-size:.8rem;cursor:pointer;transition:all .2s;flex-shrink:0;}
+.btn-reset:hover{border-color:var(--accent);color:var(--accent);}
+
+/* Sensor badge */
+.sensor-badge{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text3);transition:all .3s;flex-shrink:0;cursor:pointer;font-family:inherit;}
+.sensor-badge.active{color:var(--green);border-color:rgba(56,217,169,.35);background:rgba(56,217,169,.08);}
+.sensor-badge.pending{color:var(--orange);border-color:rgba(255,159,67,.35);background:rgba(255,159,67,.08);}
+.sensor-badge.error{color:var(--red);border-color:rgba(255,107,107,.35);background:rgba(255,107,107,.08);}
+.sensor-text{font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.5px;}
+@media(max-width:480px){.sensor-text{display:none;}.sensor-badge{padding:4px 6px;}}
+
+/* ── Responsive header ───────────────────────────────────────────────── */
+@media(max-width:768px){
+  .app-header{height:52px;padding:0 1rem;}
+  .logo-main,.logo-sub{font-size:1.2rem;}
+  .translate-banner{top:52px;}
+  .translate-tooltip{display:none;}
+  .main{margin-top:52px;}
+  .btn-reset-text{display:none;}
+  .btn-reset{padding:5px 10px;font-size:.75rem;}
+  body:has(.translate-banner.visible) .main{margin-top:calc(52px + 38px);}
+}
+@media(max-width:480px){
+  .app-header{height:48px;}
+  .logo-main,.logo-sub{font-size:1.1rem;}
+  .translate-banner{top:48px;}
+  .main{margin-top:48px;}
+  body:has(.translate-banner.visible) .main{margin-top:calc(48px + 38px);}
+}
+@media(max-height:500px) and (max-width:900px){
+  .app-header{height:44px;}
+  .translate-banner{top:44px;}
+  .main{margin-top:44px;}
+  body:has(.translate-banner.visible) .main{margin-top:calc(44px + 38px);}
+}
+@media(max-width:360px){
+  .logo-sub-word{display:none;}
+  .logo-sub-initial{display:inline;}
+}
+@media(min-width:769px){.translate-banner{display:none;}}
 
 /* ── Main ────────────────────────────────────────────────────────────── */
-.main{margin-top:64px;flex:1;padding:1.25rem;display:flex;flex-direction:column;gap:1rem;max-width:480px;width:100%;margin-left:auto;margin-right:auto;}
-.screen{display:flex;flex-direction:column;gap:1rem;}
+.main{margin-top:64px;flex:1;padding:1.25rem;display:flex;flex-direction:column;gap:.875rem;max-width:480px;width:100%;margin-left:auto;margin-right:auto;transition:margin-top .25s ease;}
+.screen{display:flex;flex-direction:column;gap:.875rem;}
 
 /* ── Cards ───────────────────────────────────────────────────────────── */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;}
@@ -63,19 +112,58 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .btn-danger:hover{background:rgba(255,71,87,.18);}
 .btn-full{width:100%;}
 
-/* ── Laterality selector ─────────────────────────────────────────────── */
-.laterality-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
-.lat-full{grid-column:1/-1;}
-.lat-btn{padding:.7rem;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit;font-size:.85rem;font-weight:500;transition:all .15s;text-align:center;}
-.lat-btn:hover{border-color:var(--border2);color:var(--text);}
-.lat-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(251,146,60,.08);}
+/* ── Patient field (menu) ────────────────────────────────────────────── */
+.patient-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.875rem 1.25rem;}
+.patient-card-label{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:.5rem;}
+.patient-input-wrap{display:flex;align-items:center;gap:.5rem;}
+.patient-avatar{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text3);flex-shrink:0;}
+.patient-avatar.has-patient{color:var(--accent);border-color:rgba(251,146,60,.35);background:rgba(251,146,60,.06);}
+
+/* ── Menu screen ─────────────────────────────────────────────────────── */
+.menu-section-label{font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:.25rem 0 .1rem;}
+.menu-card{width:100%;display:flex;align-items:center;gap:1rem;padding:1rem 1.1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;text-align:left;transition:border-color .15s,background .15s;}
+.menu-card:hover{border-color:var(--border2);background:var(--surface2);}
+.menu-card:active{transform:scale(.985);}
+.menu-card-icon{width:42px;height:42px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;}
+.menu-card-body{flex:1;min-width:0;}
+.menu-card-title{font-size:.95rem;font-weight:500;color:var(--text);margin-bottom:.2rem;}
+.menu-card-desc{font-size:.78rem;color:var(--text2);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.menu-card-arrow{color:var(--text3);flex-shrink:0;}
+.menu-ble-hint{display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.55rem 1rem;border-radius:8px;border:1px solid rgba(251,146,60,.25);background:rgba(251,146,60,.06);color:var(--accent);font-size:.8rem;cursor:pointer;transition:border-color .2s;font-family:inherit;}
+.menu-ble-hint:hover{border-color:rgba(251,146,60,.45);}
+
+/* ── Config nav ──────────────────────────────────────────────────────── */
+.config-nav{display:flex;align-items:center;gap:.6rem;}
+.btn-back{display:flex;align-items:center;gap:.2rem;padding:.35rem .65rem .35rem .4rem;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-family:inherit;font-size:.82rem;color:var(--text2);transition:all .15s;}
+.btn-back:hover{border-color:var(--border2);color:var(--text);}
+.config-title{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);}
+
+/* ── Mode toggle ─────────────────────────────────────────────────────── */
+.mode-toggle{display:grid;grid-template-columns:1fr 1fr;background:var(--surface2);border-radius:10px;border:1px solid var(--border);padding:3px;gap:3px;margin-bottom:1rem;}
+.mode-btn{padding:.55rem .5rem;border-radius:8px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:.85rem;font-weight:500;color:var(--text2);transition:all .2s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mode-btn.active{background:var(--accent);color:#0a0d12;}
 
 /* ── Field rows ──────────────────────────────────────────────────────── */
 .field-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
-.field-row + .field-row{margin-top:.75rem;}
+.field-row+.field-row{margin-top:.75rem;}
 .field-label{font-size:.88rem;color:var(--text2);}
 .field-input{width:72px;padding:.45rem .75rem;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:'DM Mono',monospace;font-size:.9rem;text-align:center;}
 .field-input:focus{outline:none;border-color:var(--accent);}
+
+/* ── Text input (shared) ─────────────────────────────────────────────── */
+.text-input{width:100%;padding:.6rem .75rem;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:.9rem;}
+.text-input:focus{outline:none;border-color:var(--accent);}
+
+/* ── Info desc / info block ──────────────────────────────────────────── */
+.info-desc{font-size:.82rem;color:var(--text2);line-height:1.6;margin-bottom:.875rem;}
+.info-block-title{font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:.875rem;}
+.info-block-text{font-size:.82rem;color:var(--text3);line-height:1.65;}
+
+/* ── RFD mini charts ─────────────────────────────────────────────────── */
+.rfd-charts{display:flex;gap:1.5rem;justify-content:center;margin-bottom:.875rem;}
+.rfd-chart-item{display:flex;flex-direction:column;align-items:center;gap:.35rem;}
+.rfd-chart-svg{opacity:.72;}
+.rfd-chart-label{font-size:.68rem;color:var(--text3);text-align:center;}
 
 /* ── Live force ──────────────────────────────────────────────────────── */
 .live-force-wrap{display:flex;align-items:baseline;justify-content:center;gap:.4rem;padding:.75rem 0 .5rem;}
@@ -123,42 +211,62 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .no-ble-msg h2{font-size:1.05rem;margin-bottom:.6rem;}
 .no-ble-msg p{font-size:.85rem;color:var(--text2);line-height:1.65;}
 
-/* ── Dialog ──────────────────────────────────────────────────────────── */
-dialog{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;color:var(--text);width:min(400px,calc(100vw - 2rem));}
-dialog::backdrop{background:rgba(0,0,0,.6);}
+/* ── Countdown ───────────────────────────────────────────────────────── */
+.countdown-card{text-align:center;padding:2.5rem 1.25rem;}
+.countdown-num{font-family:'DM Mono',monospace;font-size:5rem;font-weight:300;color:var(--accent);line-height:1;}
+
+/* ── Dialog base ─────────────────────────────────────────────────────── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+dialog{position:fixed;inset:0;margin:auto;height:fit-content;background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:1.8rem;color:var(--text);width:min(400px,calc(100vw - 2rem));box-shadow:0 20px 60px rgba(0,0,0,.5);}
+dialog[open]{animation:fadeUp .2s ease;}
+dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
 .dialog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;}
 .dialog-title{font-size:1rem;font-weight:600;}
-.dialog-close{width:32px;height:32px;border-radius:50%;border:none;background:transparent;cursor:pointer;color:var(--text3);display:flex;align-items:center;justify-content:center;}
+.dialog-close{width:32px;height:32px;border-radius:50%;border:none;background:transparent;cursor:pointer;color:var(--text3);display:flex;align-items:center;justify-content:center;transition:all .15s;}
 .dialog-close:hover{color:var(--text);background:var(--surface2);}
 .field-group{display:flex;flex-direction:column;gap:.4rem;}
 .field-group label{font-size:.8rem;color:var(--text3);}
-.text-input{width:100%;padding:.6rem .75rem;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:.9rem;}
-.text-input:focus{outline:none;border-color:var(--accent);}
+
+/* ── BLE dialog ──────────────────────────────────────────────────────── */
+.ble-dialog-icon{display:flex;justify-content:center;padding:1.25rem 0 .875rem;}
+.ble-scan-desc{text-align:center;font-size:.88rem;color:var(--text2);line-height:1.65;margin-bottom:1.25rem;}
+.ble-scan-desc strong{color:var(--text);}
+.ble-battery-row{display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:1rem 0 .75rem;}
+.ble-battery-inner{display:flex;align-items:center;gap:.6rem;}
+.ble-battery-pct{font-family:'DM Mono',monospace;font-size:1rem;font-weight:500;color:var(--green);}
+.ble-battery-label{font-size:.75rem;color:var(--text3);}
+.ble-connected-desc{text-align:center;font-size:.88rem;color:var(--text2);line-height:1.6;margin-bottom:1rem;}
+.ble-force-row{display:flex;align-items:baseline;justify-content:center;gap:.35rem;padding:.6rem 0 1rem;}
+.ble-force-val{font-family:'DM Mono',monospace;font-size:2.75rem;font-weight:300;color:var(--text);}
+.ble-force-unit{font-size:.88rem;color:var(--text3);}
 </style>
 </head>
 <body>
+
+<!-- ── Translate banner (mobile) ───────────────────────────────────────────── -->
+<div id="translate-banner" class="translate-banner">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+  <span>Para traducir: menú del navegador → Traducir página.</span>
+  <button id="translate-banner-close" class="translate-banner-close" aria-label="Cerrar">×</button>
+</div>
 
 <!-- ── Header ──────────────────────────────────────────────────────────────── -->
 <header class="app-header">
   <div class="logo">
     <span class="logo-main">PhysiQ</span>
-    <span class="logo-sub">Force</span>
+    <span class="logo-sub">— <span class="logo-sub-word">Force</span><span class="logo-sub-initial" aria-hidden="true">F</span></span>
   </div>
   <div class="header-right">
-    <span id="session-chip" class="session-chip" hidden></span>
-    <div id="ble-badge" class="ble-badge" data-state="disconnected">
-      <span class="ble-dot"></span>
-      <span class="ble-label">Desconectado</span>
-    </div>
-    <button id="btn-reset" class="btn-icon" title="Reiniciar">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
-      </svg>
-    </button>
-    <button id="btn-session" class="btn-icon" title="Sesión">
+    <button id="btn-session" class="session-btn" title="Sesión activa" aria-label="Ver sesión">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
       </svg>
+    </button>
+    <button id="btn-reset" class="btn-reset" title="Reiniciar">↺ <span class="btn-reset-text">Reiniciar</span></button>
+    <button id="btn-global" class="btn-global" title="Idioma / Translate">🌐<div class="translate-tooltip">Para traducir, usa el menú del navegador<br>o la barra de dirección de Chrome.</div></button>
+    <button id="btn-ble" class="sensor-badge" title="Dispositivo Bluetooth">
+      <svg width="12" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>
+      <span class="sensor-text">Sensor</span>
     </button>
   </div>
 </header>
@@ -181,36 +289,92 @@ dialog::backdrop{background:rgba(0,0,0,.6);}
     </div>
   </div>
 
-  <!-- ── Connect ─────────────────────────────────────────────────────────── -->
-  <div id="screen-connect" class="screen" hidden>
-    <div class="card">
-      <p class="card-title">Dispositivo</p>
-      <p style="font-size:.85rem;color:var(--text2);margin-bottom:1.1rem;line-height:1.65;">
-        Enciende el Progressor y pulsa conectar.<br>
-        Mantén el dispositivo cerca.
-      </p>
-      <button id="btn-connect" class="btn btn-primary btn-full">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6l4-4 4 4"/><path d="M12 2v10.3"/><path d="M8 18l4 4 4-4"/><path d="M12 22V11.7"/></svg>
-        Conectar Progressor
-      </button>
-    </div>
-  </div>
+  <!-- ── Menu ───────────────────────────────────────────────────────────── -->
+  <div id="screen-menu" class="screen" hidden>
 
-  <!-- ── Config ──────────────────────────────────────────────────────────── -->
-  <div id="screen-config" class="screen" hidden>
-
-    <div class="card">
-      <p class="card-title">Lateralidad</p>
-      <div class="laterality-grid">
-        <button class="lat-btn active" data-laterality="single">Sin lateralidad</button>
-        <button class="lat-btn lat-full" data-laterality="comparison">Comparar lados (AI)</button>
-        <button class="lat-btn" data-laterality="left">Izquierdo</button>
-        <button class="lat-btn" data-laterality="right">Derecho</button>
+    <!-- Patient name field -->
+    <div class="patient-card">
+      <p class="patient-card-label">Paciente (opcional)</p>
+      <div class="patient-input-wrap">
+        <span id="patient-avatar" class="patient-avatar" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
+        <input id="menu-patient-name" class="text-input" type="text" placeholder="Nombre del paciente" autocomplete="off">
       </div>
     </div>
 
+    <button id="menu-ble-hint" class="menu-ble-hint" hidden>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 12h10"/><path d="M9 7l5 5-5 5"/>
+        <path d="M14.5 5l5 7-5 7"/>
+      </svg>
+      Conecta el Progressor para comenzar
+    </button>
+
+    <p class="menu-section-label">Evaluación</p>
+
+    <button class="menu-card" data-test="peak">
+      <div class="menu-card-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+      </div>
+      <div class="menu-card-body">
+        <div class="menu-card-title">Fuerza Pico / MVC</div>
+        <div class="menu-card-desc">Registrar fuerza máxima y asimetría bilateral.</div>
+      </div>
+      <svg class="menu-card-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+
+    <button class="menu-card" data-test="rfd">
+      <div class="menu-card-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+      </div>
+      <div class="menu-card-body">
+        <div class="menu-card-title">RFD</div>
+        <div class="menu-card-desc">Tasa de desarrollo de fuerza explosiva.</div>
+      </div>
+      <svg class="menu-card-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+
+    <p class="menu-section-label">Monitoreo</p>
+
+    <button class="menu-card" data-test="live">
+      <div class="menu-card-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+      </div>
+      <div class="menu-card-body">
+        <div class="menu-card-title">Datos en Vivo</div>
+        <div class="menu-card-desc">Fuerza en tiempo real sin detección de contracciones.</div>
+      </div>
+      <svg class="menu-card-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+
+  </div>
+
+  <!-- ── Config: Fuerza Pico ─────────────────────────────────────────────── -->
+  <div id="screen-config-peak" class="screen" hidden>
+
+    <div class="config-nav">
+      <button class="btn-back" data-back="screen-menu">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Volver
+      </button>
+      <span class="config-title">Fuerza Pico / MVC</span>
+    </div>
+
     <div class="card">
-      <p class="card-title">Configuración del test</p>
+      <div class="mode-toggle">
+        <button class="mode-btn active" data-laterality="single">Individual</button>
+        <button class="mode-btn" data-laterality="comparison">Izquierda / Derecha</button>
+      </div>
+      <p class="info-desc">Mide la contracción voluntaria máxima (MVC). En modo <strong>Izquierda / Derecha</strong> se calcula el índice de asimetría bilateral.</p>
       <div class="field-row">
         <span class="field-label">Contracciones por lado</span>
         <input id="reps-input" class="field-input" type="number" min="1" max="10" value="3">
@@ -221,12 +385,91 @@ dialog::backdrop{background:rgba(0,0,0,.6);}
       </div>
     </div>
 
-    <button id="btn-start-test" class="btn btn-primary btn-full">
+    <button id="btn-start-peak" class="btn btn-primary btn-full">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
       Iniciar test
     </button>
-    <button id="btn-disconnect" class="btn btn-secondary btn-full">Desconectar</button>
 
+  </div>
+
+  <!-- ── Config: RFD ─────────────────────────────────────────────────────── -->
+  <div id="screen-config-rfd" class="screen" hidden>
+
+    <div class="config-nav">
+      <button class="btn-back" data-back="screen-menu">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Volver
+      </button>
+      <span class="config-title">Configuración de RFD</span>
+    </div>
+
+    <div class="card">
+      <div class="mode-toggle">
+        <button class="mode-btn active" data-laterality="single">Individual</button>
+        <button class="mode-btn" data-laterality="comparison">Izquierda / Derecha</button>
+      </div>
+      <div class="field-row">
+        <span class="field-label">Contracciones por lado</span>
+        <input id="rfd-reps-input" class="field-input" type="number" min="1" max="10" value="3">
+      </div>
+      <div class="field-row">
+        <span class="field-label">Umbral de detección (kg)</span>
+        <input id="rfd-threshold-input" class="field-input" type="number" min="0.5" max="20" step="0.5" value="2.0">
+      </div>
+      <div class="field-row">
+        <span class="field-label">Cuenta regresiva (s)</span>
+        <input id="rfd-countdown-input" class="field-input" type="number" min="0" max="10" value="3">
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="info-block-title">Información de RFD</p>
+      <div class="rfd-charts">
+        <div class="rfd-chart-item">
+          <svg class="rfd-chart-svg" width="100" height="70" viewBox="0 0 100 70">
+            <line x1="10" y1="60" x2="90" y2="60" stroke="#232d45" stroke-width="1"/>
+            <line x1="10" y1="10" x2="10" y2="60" stroke="#232d45" stroke-width="1"/>
+            <line x1="10" y1="26" x2="90" y2="26" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
+            <line x1="10" y1="46" x2="90" y2="46" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
+            <text x="7" y="29" text-anchor="end" font-size="8" fill="#5a6e8a">80%</text>
+            <text x="7" y="49" text-anchor="end" font-size="8" fill="#5a6e8a">20%</text>
+            <path d="M 15 58 Q 32 54 48 38 Q 62 20 82 14" stroke="#fcd34d" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <line x1="29" y1="46" x2="63" y2="26" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3,2"/>
+          </svg>
+          <span class="rfd-chart-label">RFD 20-80%</span>
+        </div>
+        <div class="rfd-chart-item">
+          <svg class="rfd-chart-svg" width="100" height="70" viewBox="0 0 100 70">
+            <line x1="10" y1="60" x2="90" y2="60" stroke="#232d45" stroke-width="1"/>
+            <line x1="10" y1="10" x2="10" y2="60" stroke="#232d45" stroke-width="1"/>
+            <path d="M 15 58 Q 32 54 48 38 Q 62 20 82 14" stroke="#fcd34d" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <line x1="28" y1="58" x2="28" y2="10" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
+            <line x1="68" y1="58" x2="68" y2="10" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
+            <line x1="28" y1="20" x2="68" y2="20" stroke="#e8edf5" stroke-width="1"/>
+            <text x="48" y="17" text-anchor="middle" font-size="8" fill="#8fa0bf">Time</text>
+            <text x="28" y="68" text-anchor="middle" font-size="7" fill="#5a6e8a">Onset</text>
+            <line x1="28" y1="55" x2="68" y2="25" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3,2"/>
+          </svg>
+          <span class="rfd-chart-label">RFD Time-interval</span>
+        </div>
+      </div>
+      <p class="info-block-text">Rate of Force Development (RFD) es una medida de la fuerza explosiva: qué tan rápido el músculo desarrolla tensión. Se representa como la pendiente de la curva fuerza-tiempo.</p>
+    </div>
+
+    <button id="btn-start-rfd" class="btn btn-primary btn-full">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      Iniciar test
+    </button>
+
+  </div>
+
+  <!-- ── Countdown ───────────────────────────────────────────────────────── -->
+  <div id="screen-countdown" class="screen" hidden>
+    <div class="card countdown-card">
+      <p style="font-size:.78rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem;">Preparando</p>
+      <p id="countdown-num" class="countdown-num">3</p>
+      <p style="font-size:.85rem;color:var(--text2);margin-top:.75rem;">Prepárate para la contracción explosiva</p>
+    </div>
   </div>
 
   <!-- ── Measure ─────────────────────────────────────────────────────────── -->
@@ -261,6 +504,32 @@ dialog::backdrop{background:rgba(0,0,0,.6);}
 
   </div>
 
+  <!-- ── Datos en Vivo ───────────────────────────────────────────────────── -->
+  <div id="screen-live" class="screen" hidden>
+
+    <div class="config-nav">
+      <button class="btn-back" data-back="screen-menu">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Volver
+      </button>
+      <span class="config-title">Datos en Vivo</span>
+    </div>
+
+    <div class="card">
+      <div class="live-force-wrap">
+        <span id="live-force-live" class="live-force-value">0.0</span>
+        <span class="live-force-unit">kg</span>
+      </div>
+      <canvas id="force-canvas-live" class="force-canvas"></canvas>
+    </div>
+
+    <button id="btn-stop-live" class="btn btn-danger btn-full">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+      Detener
+    </button>
+
+  </div>
+
   <!-- ── Results ─────────────────────────────────────────────────────────── -->
   <div id="screen-results" class="screen" hidden>
 
@@ -277,11 +546,75 @@ dialog::backdrop{background:rgba(0,0,0,.6);}
       <div id="results-content"></div>
     </div>
 
-    <button id="btn-new-test" class="btn btn-primary btn-full">Nuevo test</button>
+    <button id="btn-new-test" class="btn btn-secondary btn-full">Repetir test</button>
+    <button id="btn-results-menu" class="btn btn-primary btn-full">Volver al menú</button>
 
   </div>
 
 </main>
+
+<!-- ── BLE dialog ───────────────────────────────────────────────────────────── -->
+<dialog id="dialog-ble">
+  <div class="dialog-header">
+    <span id="ble-dialog-title" class="dialog-title">Conectar dispositivo</span>
+    <button id="btn-ble-close" class="dialog-close" aria-label="Cerrar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <!-- Disconnected state -->
+  <div id="ble-state-disconnected">
+    <div class="ble-dialog-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="120" height="138" viewBox="0 0 353 406" style="shape-rendering:geometricPrecision">
+        <path fill="#040404" d="M 235.5,211.5 C 233.938,211.267 232.605,210.6 231.5,209.5C 246.733,180.701 262.233,152.034 278,123.5C 277.527,118.524 275.86,113.858 273,109.5C 271.324,108.939 269.991,107.939 269,106.5C 249.008,119.245 228.508,131.078 207.5,142C 189.128,145.405 177.295,138.238 172,120.5C 171.271,97.1319 170.105,73.7986 168.5,50.5C 162.782,49.2815 157.115,49.6148 151.5,51.5C 115.794,118.19 80.1276,184.856 44.5,251.5C 45.755,257.386 48.9217,261.72 54,264.5C 72.0864,254.08 89.9197,243.246 107.5,232C 120.218,225.389 132.385,226.222 144,234.5C 150.199,240.901 153.032,248.568 152.5,257.5C 150.5,257.5 148.5,257.5 146.5,257.5C 143.229,239.403 132.562,232.237 114.5,236C 99.6221,244.087 96.4555,255.587 105,270.5C 115.149,280.72 126.316,282.053 138.5,274.5C 138.894,278.347 139.894,282.014 141.5,285.5C 124.947,293.044 110.114,290.377 97,277.5C 90.9914,268.585 88.4914,258.918 89.5,248.5C 80.8333,253.833 72.1667,259.167 63.5,264.5C 62.479,265.002 62.3123,265.668 63,266.5C 91.4096,282.711 120.076,298.711 149,314.5C 149.499,309.845 149.666,305.179 149.5,300.5C 151.522,302.531 153.189,304.865 154.5,307.5C 154.177,311.226 154.511,314.893 155.5,318.5C 157.567,320.745 159.9,321.079 162.5,319.5C 163.89,320.899 164.89,322.566 165.5,324.5C 160.418,326.232 155.752,325.399 151.5,322C 150.254,318.418 147.92,315.751 144.5,314C 116.221,298.613 88.0546,283.113 60,267.5C 55.2485,270.199 50.7485,269.699 46.5,266C 43.2262,261.619 40.8929,256.786 39.5,251.5C 43.0337,243.43 46.867,235.43 51,227.5C 83,168.167 115,108.833 147,49.5C 147.833,48 149,46.8333 150.5,46C 156.471,44.869 162.471,44.5356 168.5,45C 172.193,46.0264 174.526,48.3598 175.5,52C 205.92,68.9602 236.42,85.7936 267,102.5C 271.472,101.894 275.138,103.561 278,107.5C 281.453,112.374 283.12,117.708 283,123.5C 267.409,153.02 251.575,182.353 235.5,211.5 Z"/>
+        <path fill="#f7f7f7" d="M 231.5,209.5 C 223.089,204.659 215.756,205.992 209.5,213.5C 205.337,196.849 201.171,180.183 197,163.5C 194.615,158.281 190.782,154.614 185.5,152.5C 181.548,147.371 176.548,146.204 170.5,149C 166.01,152.781 164.343,157.614 165.5,163.5C 164.537,167.796 164.371,172.129 165,176.5C 172.804,212.827 180.137,249.16 187,285.5C 179.167,277.667 171.333,269.833 163.5,262C 160.274,259.425 156.607,257.925 152.5,257.5C 153.032,248.568 150.199,240.901 144,234.5C 132.385,226.222 120.218,225.389 107.5,232C 89.9197,243.246 72.0864,254.08 54,264.5C 48.9217,261.72 45.755,257.386 44.5,251.5C 80.1276,184.856 115.794,118.19 151.5,51.5C 157.115,49.6148 162.782,49.2815 168.5,50.5C 170.105,73.7986 171.271,97.1319 172,120.5C 177.295,138.238 189.128,145.405 207.5,142C 228.508,131.078 249.008,119.245 269,106.5C 269.991,107.939 271.324,108.939 273,109.5C 275.86,113.858 277.527,118.524 278,123.5C 262.233,152.034 246.733,180.701 231.5,209.5 Z"/>
+        <path fill="#b4b4b4" d="M 176.5,90.5 C 175.833,84.8333 175.167,79.1667 174.5,73.5C 174.334,67.1579 174.5,60.8246 175,54.5C 204.625,71.0595 234.125,87.7262 263.5,104.5C 253.762,110.898 243.762,116.898 233.5,122.5C 235.463,100.927 225.796,87.4274 204.5,82C 193.757,80.528 184.423,83.3614 176.5,90.5 Z"/>
+        <path fill="#3d3d3d" d="M 174.5,73.5 C 175.167,79.1667 175.833,84.8333 176.5,90.5C 176.44,91.0431 176.107,91.3764 175.5,91.5C 174.504,85.5368 174.171,79.5368 174.5,73.5 Z"/>
+        <path fill="#f5f5f5" d="M 193.5,92.5 C 214.806,91.3058 224.306,101.306 222,122.5C 218.127,132.034 210.96,137.034 200.5,137.5C 181.901,134.051 174.734,123.051 179,104.5C 182.515,98.8106 187.348,94.8106 193.5,92.5 Z"/>
+        <path fill="#b8babd" d="M 185.5,152.5 C 176.41,152.04 169.743,155.707 165.5,163.5C 164.343,157.614 166.01,152.781 170.5,149C 176.548,146.204 181.548,147.371 185.5,152.5 Z"/>
+        <path fill="#1386f9" d="M 185.5,152.5 C 190.782,154.614 194.615,158.281 197,163.5C 201.171,180.183 205.337,196.849 209.5,213.5C 215.756,205.992 223.089,204.659 231.5,209.5C 232.605,210.6 233.938,211.267 235.5,211.5C 236.045,213.593 236.878,215.593 238,217.5C 244.606,211.023 252.106,209.856 260.5,214C 262.709,215.873 264.542,218.04 266,220.5C 276.298,213.697 284.298,215.697 290,226.5C 294.985,261.009 297.318,295.675 297,330.5C 296.388,339.799 293.555,348.299 288.5,356C 286.402,356.678 284.402,356.511 282.5,355.5C 285.323,350.552 287.49,345.219 289,339.5C 290.568,329.392 291.401,319.226 291.5,309C 289.29,281.403 286.457,253.903 283,226.5C 278.404,222.568 273.737,222.568 269,226.5C 268.701,238.688 269.201,250.855 270.5,263C 270.333,264.833 270.167,266.667 270,268.5C 268.946,270.754 267.446,271.087 265.5,269.5C 263.472,255.254 262.306,240.92 262,226.5C 258.412,218.567 252.578,216.4 244.5,220C 241.292,223.12 239.959,226.954 240.5,231.5C 242.108,242.799 242.941,254.132 243,265.5C 240.546,267.013 238.879,266.346 238,263.5C 236.363,249.098 234.363,234.765 232,220.5C 228.737,212.123 223.237,210.29 215.5,215C 213.114,218.08 212.114,221.58 212.5,225.5C 214.241,237.205 216.241,248.872 218.5,260.5C 219.251,264.149 217.918,265.649 214.5,265C 206.936,232.574 199.436,200.074 192,167.5C 187.392,156.978 180.725,155.644 172,163.5C 170.48,167.375 170.146,171.375 171,175.5C 179.783,216.079 187.783,256.746 195,297.5C 193.132,298.672 191.298,298.505 189.5,297C 179.5,285.667 168.833,275 157.5,265C 149.675,261.407 145.342,263.74 144.5,272C 144.924,278.274 146.758,284.107 150,289.5C 162.061,307.231 173.727,325.231 185,343.5C 196.988,359.911 213.155,367.911 233.5,367.5C 231.905,371.469 228.905,373.135 224.5,372.5C 207.62,371.477 193.786,364.477 183,351.5C 177.156,342.472 171.323,333.472 165.5,324.5C 164.89,322.566 163.89,320.899 162.5,319.5C 160.316,315.119 157.65,311.119 154.5,307.5C 153.189,304.865 151.522,302.531 149.5,300.5C 146.862,295.517 144.195,290.517 141.5,285.5C 139.894,282.014 138.894,278.347 138.5,274.5C 138.211,267.413 140.877,261.747 146.5,257.5C 148.5,257.5 150.5,257.5 152.5,257.5C 156.607,257.925 160.274,259.425 163.5,262C 171.333,269.833 179.167,277.667 187,285.5C 180.137,249.16 172.804,212.827 165,176.5C 164.371,172.129 164.537,167.796 165.5,163.5C 169.743,155.707 176.41,152.04 185.5,152.5 Z"/>
+        <path fill="#f8f9fa" d="M 282.5,355.5 C 266.125,359.344 249.791,363.344 233.5,367.5C 213.155,367.911 196.988,359.911 185,343.5C 173.727,325.231 162.061,307.231 150,289.5C 146.758,284.107 144.924,278.274 144.5,272C 145.342,263.74 149.675,261.407 157.5,265C 168.833,275 179.5,285.667 189.5,297C 191.298,298.505 193.132,298.672 195,297.5C 187.783,256.746 179.783,216.079 171,175.5C 170.146,171.375 170.48,167.375 172,163.5C 180.725,155.644 187.392,156.978 192,167.5C 199.436,200.074 206.936,232.574 214.5,265C 217.918,265.649 219.251,264.149 218.5,260.5C 216.241,248.872 214.241,237.205 212.5,225.5C 212.114,221.58 213.114,218.08 215.5,215C 223.237,210.29 228.737,212.123 232,220.5C 234.363,234.765 236.363,249.098 238,263.5C 238.879,266.346 240.546,267.013 243,265.5C 242.941,254.132 242.108,242.799 240.5,231.5C 239.959,226.954 241.292,223.12 244.5,220C 252.578,216.4 258.412,218.567 262,226.5C 262.306,240.92 263.472,255.254 265.5,269.5C 267.446,271.087 268.946,270.754 270,268.5C 270.167,266.667 270.333,264.833 270.5,263C 269.201,250.855 268.701,238.688 269,226.5C 273.737,222.568 278.404,222.568 283,226.5C 286.457,253.903 289.29,281.403 291.5,309C 291.401,319.226 290.568,329.392 289,339.5C 287.49,345.219 285.323,350.552 282.5,355.5 Z"/>
+        <path fill="#f5f5f5" d="M 146.5,257.5 C 140.877,261.747 138.211,267.413 138.5,274.5C 126.316,282.053 115.149,280.72 105,270.5C 96.4555,255.587 99.6221,244.087 114.5,236C 132.562,232.237 143.229,239.403 146.5,257.5 Z"/>
+        <path fill="#b3b4b4" d="M 141.5,285.5 C 144.195,290.517 146.862,295.517 149.5,300.5C 149.666,305.179 149.499,309.845 149,314.5C 120.076,298.711 91.4096,282.711 63,266.5C 62.3123,265.668 62.479,265.002 63.5,264.5C 72.1667,259.167 80.8333,253.833 89.5,248.5C 88.4914,258.918 90.9914,268.585 97,277.5C 110.114,290.377 124.947,293.044 141.5,285.5 Z"/>
+        <path fill="#e6ebf0" d="M 154.5,307.5 C 157.65,311.119 160.316,315.119 162.5,319.5C 159.9,321.079 157.567,320.745 155.5,318.5C 154.511,314.893 154.177,311.226 154.5,307.5 Z"/>
+      </svg>
+    </div>
+    <p class="ble-scan-desc">Enciende tu Progressor pulsando el botón una vez,<br>luego presiona <strong>Escanear</strong>.</p>
+    <button id="btn-scan" class="btn btn-primary btn-full">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Escanear
+    </button>
+  </div>
+
+  <!-- Connected state -->
+  <div id="ble-state-connected" hidden>
+    <div class="ble-dialog-icon">
+      <svg width="160" height="58" viewBox="0 0 200 72" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="4" width="192" height="64" rx="16"/>
+        <circle cx="28" cy="36" r="18"/>
+        <circle cx="172" cy="36" r="18"/>
+      </svg>
+    </div>
+    <div class="ble-battery-row">
+      <div class="ble-battery-inner">
+        <svg id="battery-svg" width="34" height="18" viewBox="0 0 34 18" fill="none">
+          <rect x="1" y="1" width="28" height="16" rx="3" stroke="#38d9a9" stroke-width="1.5"/>
+          <rect id="battery-fill" x="3" y="3" width="22" height="12" rx="1.5" fill="#38d9a9"/>
+          <path d="M31 6v6" stroke="#38d9a9" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span id="battery-pct" class="ble-battery-pct">—</span>
+      </div>
+      <span class="ble-battery-label">Progressor conectado</span>
+    </div>
+    <p class="ble-connected-desc">Tara el dispositivo antes de comenzar<br>para obtener lecturas precisas.</p>
+    <button id="btn-tare" class="btn btn-primary btn-full">Tara</button>
+    <div class="ble-force-row">
+      <span id="ble-live-force" class="ble-force-val">0.0</span>
+      <span class="ble-force-unit">kg</span>
+    </div>
+    <button id="btn-disconnect" class="btn btn-secondary btn-full">Desconectar</button>
+  </div>
+</dialog>
 
 <!-- ── Session dialog ──────────────────────────────────────────────────────── -->
 <dialog id="dialog-session">
@@ -294,6 +627,12 @@ dialog::backdrop{background:rgba(0,0,0,.6);}
   <div class="field-group">
     <label for="patient-name">Paciente</label>
     <input id="patient-name" class="text-input" type="text" placeholder="Nombre del paciente" autocomplete="off">
+  </div>
+  <div style="margin-top:1.25rem;">
+    <button id="btn-clear-session" class="btn btn-danger btn-full" style="font-size:.85rem;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      Limpiar sesión
+    </button>
   </div>
 </dialog>
 
