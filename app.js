@@ -67,7 +67,7 @@ let _rfdCountdown = 3;
 // ── Session ───────────────────────────────────────────────────────────────────
 const _sessionCh  = new BroadcastChannel('physiq-session');
 let _patient      = '';
-let _savedResults = null;
+let _savedResults = [];
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -412,6 +412,16 @@ function _calcAI(left, right) {
 }
 
 // ── Results builder ───────────────────────────────────────────────────────────
+function _genLabel() {
+  const typeLabel = _currentTest === 'peak' ? 'MVC' : 'RFD';
+  const latLabel  = _laterality === 'comparison' ? ' bilateral'
+                  : _laterality === 'left'        ? ' (Izq)'
+                  : _laterality === 'right'        ? ' (Der)'
+                  : '';
+  const sameType = _savedResults.filter(r => r.testType === _currentTest && r.laterality === _laterality).length;
+  return sameType > 0 ? `${typeLabel}${latLabel} · ${sameType + 1}` : `${typeLabel}${latLabel}`;
+}
+
 function _bestOf(arr, key) {
   return arr.length ? Math.max(...arr.map(c => c[key])) : null;
 }
@@ -424,15 +434,16 @@ function _buildResults() {
       const lsi   = (lPeak !== null && rPeak !== null)
         ? (Math.min(lPeak, rPeak) / Math.max(lPeak, rPeak)) * 100
         : null;
-      return { testType: 'peak', laterality: 'comparison', sides: { left: { peak: lPeak }, right: { peak: rPeak } }, lsi, timestamp: new Date().toISOString() };
+      return { label: _genLabel(), testType: 'peak', laterality: 'comparison', sides: { left: { peak: lPeak }, right: { peak: rPeak } }, lsi, timestamp: new Date().toISOString() };
     }
-    return { testType: 'peak', laterality: _laterality, side: _activeSide, peak: _peakDisplayKg > 0 ? _peakDisplayKg : null, timestamp: new Date().toISOString() };
+    return { label: _genLabel(), testType: 'peak', laterality: _laterality, side: _activeSide, peak: _peakDisplayKg > 0 ? _peakDisplayKg : null, timestamp: new Date().toISOString() };
   }
 
   if (_laterality === 'comparison') {
     const lPeak = _bestOf(_leftContractions,  'peak');
     const rPeak = _bestOf(_rightContractions, 'peak');
     return {
+      label:          _genLabel(),
       testType:       _currentTest,
       laterality:     'comparison',
       sides: {
@@ -445,6 +456,7 @@ function _buildResults() {
   }
   const bestPeak = _bestOf(_contractions, 'peak');
   return {
+    label:      _genLabel(),
     testType:   _currentTest,
     laterality: _laterality,
     side:       _activeSide,
@@ -463,11 +475,11 @@ _sessionCh.onmessage = ({ data }) => {
 };
 
 function _saveResults(payload) {
-  _savedResults = payload;
-  writeSession({ force: payload, patient: _patient }).then(() => {
+  _savedResults = [..._savedResults, payload];
+  writeSession({ force: _savedResults, patient: _patient }).then(() => {
     if (_patient) _sessionCh.postMessage({ type: 'SESSION_PATIENT', patient: _patient });
   });
-  _sessionCh.postMessage({ type: 'SESSION_FORCE', force: payload });
+  _sessionCh.postMessage({ type: 'SESSION_FORCE', force: _savedResults });
 }
 
 function _softReset() {
@@ -480,10 +492,10 @@ function _softReset() {
   _peakDisplayKg = 0;
   _leftPeakKg    = 0;
   _rightPeakKg   = 0;
-  _savedResults = null;
+  _savedResults = [];
   _patient      = '';
-  writeSession({ force: null, patient: '' });
-  _sessionCh.postMessage({ type: 'SESSION_FORCE', force: null });
+  writeSession({ force: [], patient: '' });
+  _sessionCh.postMessage({ type: 'SESSION_FORCE', force: [] });
   _sessionCh.postMessage({ type: 'SESSION_PATIENT', patient: '' });
   _syncPatientInputs('');
   _renderSessionState();
@@ -494,7 +506,7 @@ function _loadSession() {
   readSession().then(s => {
     if (!s) return;
     _patient      = s.patient ?? '';
-    _savedResults = s.force   ?? null;
+    _savedResults = Array.isArray(s.force) ? s.force : (s.force ? [s.force] : []);
     _syncPatientInputs(_patient);
     _renderSessionState();
   });
@@ -621,8 +633,15 @@ function _bindUI() {
   document.getElementById('btn-rfd-new-test').addEventListener('click', () => {
     _showTestSection('rfd', 'config');
   });
-  document.getElementById('btn-peak-menu').addEventListener('click', () => _showScreen('screen-menu'));
-  document.getElementById('btn-rfd-menu').addEventListener('click', () => _showScreen('screen-menu'));
+  document.getElementById('btn-peak-session').addEventListener('click', () => {
+    _renderMeasurementsList();
+    _showScreen('screen-measurements');
+  });
+  document.getElementById('btn-rfd-session').addEventListener('click', () => {
+    _renderMeasurementsList();
+    _showScreen('screen-measurements');
+  });
+  document.getElementById('btn-new-measurement').addEventListener('click', () => _showScreen('screen-menu'));
 
   // Reset
   document.getElementById('btn-reset').addEventListener('click', _softReset);
@@ -686,7 +705,7 @@ function _syncPatientInputs(value) {
 
 function _renderSessionState() {
   const btn = document.getElementById('btn-session');
-  if (btn) btn.classList.toggle('active', !!_patient);
+  if (btn) btn.classList.toggle('active', !!_patient || _savedResults.length > 0);
 }
 
 // ── Test routing ──────────────────────────────────────────────────────────────
@@ -1067,6 +1086,56 @@ function _renderRepsTable(reps, container) {
   table.innerHTML = `<thead><tr><th>Rep</th><th>Pico (kg)</th><th>RFD (kg/s)</th><th>T. pico (ms)</th></tr></thead>`;
   table.appendChild(tbody);
   container.appendChild(table);
+}
+
+// ── Measurements list ─────────────────────────────────────────────────────────
+function _renderMeasurementsList() {
+  const list = document.getElementById('measurements-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  if (!_savedResults.length) {
+    const empty = document.createElement('p');
+    empty.className = 'measurements-empty';
+    empty.textContent = 'Sin mediciones guardadas en esta sesión.';
+    list.appendChild(empty);
+    return;
+  }
+
+  _savedResults.forEach((m, i) => {
+    const card = document.createElement('div');
+    card.className = 'mcard';
+
+    const ts      = m.timestamp ? new Date(m.timestamp) : null;
+    const timeStr = ts ? ts.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '';
+
+    let valStr = '';
+    if (m.laterality === 'comparison') {
+      const l = m.sides?.left?.peak;
+      const r = m.sides?.right?.peak;
+      const parts = [];
+      if (l != null) parts.push(`I: ${l.toFixed(1)} kg`);
+      if (r != null) parts.push(`D: ${r.toFixed(1)} kg`);
+      valStr = parts.join(' · ');
+    } else {
+      const peak      = m.peak;
+      const sideLabel = m.side === 'left' ? 'Izq · ' : m.side === 'right' ? 'Der · ' : '';
+      valStr = peak != null ? `${sideLabel}${peak.toFixed(1)} kg` : '—';
+    }
+
+    const ai      = m.asymmetryIndex ?? (m.lsi != null ? 100 - m.lsi : null);
+    const aiLevel = ai != null ? (ai < 10 ? 'green' : ai < 20 ? 'yellow' : 'red') : null;
+
+    card.innerHTML =
+      `<div class="mcard-header">` +
+        `<span class="mcard-label">${m.label ?? `Medición ${i + 1}`}</span>` +
+        `<span class="mcard-time">${timeStr}</span>` +
+      `</div>` +
+      `<div class="mcard-values">${valStr}</div>` +
+      (aiLevel ? `<span class="mcard-ai" data-level="${aiLevel}">AI ${ai.toFixed(1)} %</span>` : '');
+
+    list.appendChild(card);
+  });
 }
 
 // ── Hub integration ───────────────────────────────────────────────────────────
