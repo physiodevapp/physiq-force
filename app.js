@@ -32,6 +32,8 @@ let _ctrlChar  = null;
 let _measuring = false;
 let _liveMode  = false;
 let _batteryPct = null;
+let _lastRawKg  = 0;
+let _tareOffset = 0;
 
 // ── Chart state ───────────────────────────────────────────────────────────────
 let _chartPoints      = [];
@@ -119,8 +121,10 @@ async function bleDisconnect() {
 
 function _onDisconnect() {
   _device = null; _dataChar = null; _ctrlChar = null;
-  _measuring = false;
-  _liveMode  = false;
+  _measuring  = false;
+  _liveMode   = false;
+  _lastRawKg  = 0;
+  _tareOffset = 0;
   _stopChartLoop();
   _stopLiveChartLoop();
   _setBLEStatus('disconnected');
@@ -140,7 +144,8 @@ function _onData(e) {
   if (type === RES.WEIGHT_MEAS) {
     const count = Math.floor((dv.byteLength - 2) / 8);
     for (let i = 0; i < count; i++) {
-      _onSample(Math.max(0, dv.getFloat32(2 + i * 8, true)));
+      _lastRawKg = Math.max(0, dv.getFloat32(2 + i * 8, true));
+      _onSample(Math.max(0, _lastRawKg - _tareOffset));
     }
   } else if (type === RES.CMD_RESPONSE) {
     if (dv.byteLength >= 3 && dv.getUint8(1) === CMD.GET_BATTERY) {
@@ -176,7 +181,7 @@ async function startMeasurement() {
   _initCanvas('force-canvas');
   _startChartLoop();
 
-  await _writeCmd(CMD.TARE);
+  _doSoftTare();
 }
 
 async function _stopMeasurement() {
@@ -216,7 +221,7 @@ async function _startLive() {
   _liveMode         = true;
   _initCanvas('force-canvas-live');
   _startLiveChartLoop();
-  await _writeCmd(CMD.TARE);
+  _doSoftTare();
 }
 
 async function _stopLive() {
@@ -448,6 +453,8 @@ function _softReset() {
   if (_liveMode)  _stopLive();
   _contractions = []; _leftContractions = []; _rightContractions = [];
   _chartPoints  = []; _liveChartPoints  = [];
+  _lastRawKg    = 0;
+  _tareOffset   = 0;
   _savedResults = null;
   _patient      = '';
   writeSession({ force: null, patient: '' });
@@ -484,7 +491,7 @@ function _bindUI() {
     if (_device?.gatt?.connected) document.getElementById('dialog-ble').showModal();
   });
   // BLE dialog: tare
-  document.getElementById('btn-tare').addEventListener('click', () => _writeCmd(CMD.TARE));
+  document.getElementById('btn-tare').addEventListener('click', () => _doSoftTare());
   // BLE dialog: disconnect
   document.getElementById('btn-disconnect').addEventListener('click', async () => {
     document.getElementById('dialog-ble').close();
@@ -721,23 +728,29 @@ function _updateBLEDialog() {
   if (connected && _batteryPct !== null) _renderBattery(_batteryPct);
 }
 
+function _doSoftTare() {
+  _tareOffset = _lastRawKg;
+}
+
 function _renderBattery(pct) {
-  const pctEl  = document.getElementById('battery-pct');
-  const fillEl = document.getElementById('battery-fill');
-  if (pctEl) pctEl.textContent = `${pct} %`;
-  if (fillEl) {
-    const maxW  = 22;
-    const color = pct > 40 ? '#38d9a9' : pct > 20 ? '#fcd34d' : '#ff4757';
-    fillEl.setAttribute('width', Math.max(1, Math.round(maxW * pct / 100)));
-    fillEl.setAttribute('fill', color);
-    const svg = document.getElementById('battery-svg');
-    if (svg) {
-      svg.querySelectorAll('[stroke]').forEach(el => {
-        if (el !== fillEl) el.setAttribute('stroke', color);
-      });
-      if (pctEl) pctEl.style.color = color;
-    }
+  const pctEl = document.getElementById('battery-pct');
+  if (pctEl) { pctEl.textContent = `${pct} %`; }
+
+  const active = pct >= 66 ? 3 : pct >= 33 ? 2 : 1;
+  const color  = active === 3 ? '#38d9a9' : active === 2 ? '#fcd34d' : '#ff4757';
+  const dim    = '#232d45';
+
+  ['battery-seg1', 'battery-seg2', 'battery-seg3'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (el) el.setAttribute('fill', i < active ? color : dim);
+  });
+
+  const svg = document.getElementById('battery-svg');
+  if (svg) {
+    svg.querySelector('rect:first-child')?.setAttribute('stroke', color);
+    svg.querySelector('path')?.setAttribute('stroke', color);
   }
+  if (pctEl) pctEl.style.color = color;
 }
 
 function _renderLiveReset() {
