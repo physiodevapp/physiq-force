@@ -612,9 +612,16 @@ function _bindUI() {
     _softReset();
   });
 
-  // Patient name — session dialog field
+  // Patient name — menu field (primary)
+  document.getElementById('menu-patient-name').addEventListener('input', e => {
+    _patient = e.target.value.trim();
+    document.getElementById('patient-name').value = e.target.value;
+    _persistPatient();
+  });
+  // Patient name — session dialog field (keeps in sync)
   document.getElementById('patient-name').addEventListener('input', e => {
     _patient = e.target.value.trim();
+    document.getElementById('menu-patient-name').value = e.target.value;
     _persistPatient();
   });
 
@@ -644,7 +651,9 @@ function _persistPatient() {
 }
 
 function _syncPatientInputs(value) {
+  const menuInput   = document.getElementById('menu-patient-name');
   const dialogInput = document.getElementById('patient-name');
+  if (menuInput)   menuInput.value   = value;
   if (dialogInput) dialogInput.value = value;
 }
 

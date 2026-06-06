@@ -21,6 +21,7 @@
   --radius:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
+[hidden]{display:none!important;}
 body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
 
 /* ── Header ──────────────────────────────────────────────────────────── */
@@ -274,6 +275,13 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 
   <!-- ── Menu ───────────────────────────────────────────────────────────── -->
   <div id="screen-menu" class="screen" hidden>
+
+    <div class="card">
+      <div class="field-group">
+        <label for="menu-patient-name">Paciente</label>
+        <input id="menu-patient-name" class="text-input" type="text" placeholder="Nombre (opcional)" autocomplete="off">
+      </div>
+    </div>
 
     <p class="menu-section-label">Evaluación</p>
 
