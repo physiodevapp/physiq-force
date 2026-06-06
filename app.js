@@ -748,7 +748,6 @@ function _renderBattery(pct) {
   const svg = document.getElementById('battery-svg');
   if (svg) {
     svg.querySelector('rect:first-child')?.setAttribute('stroke', color);
-    svg.querySelector('path')?.setAttribute('stroke', color);
   }
   if (pctEl) pctEl.style.color = color;
 }
