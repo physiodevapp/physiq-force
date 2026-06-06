@@ -35,6 +35,8 @@ let _batteryPct = null;
 let _lastRawKg    = 0;
 let _tareOffset   = 0;
 let _peakDisplayKg = 0;
+let _leftPeakKg    = 0;
+let _rightPeakKg   = 0;
 
 // ── Chart state ───────────────────────────────────────────────────────────────
 let _chartPoints      = [];
@@ -127,6 +129,8 @@ function _onDisconnect() {
   _lastRawKg     = 0;
   _tareOffset    = 0;
   _peakDisplayKg = 0;
+  _leftPeakKg    = 0;
+  _rightPeakKg   = 0;
   _stopChartLoop();
   _stopLiveChartLoop();
   _setBLEStatus('disconnected');
@@ -206,7 +210,7 @@ function _onMeasureSample(kg) {
   const el = document.getElementById(`${_currentTest}-live-force`);
   if (el) el.textContent = kg.toFixed(1);
 
-  if (_currentTest === 'peak') _updateForceBar(kg);
+  if (_currentTest === 'peak') { _updateForceBar(kg); return; }
 
   if (_cState === 'idle') {
     if (kg >= _thresholdKg) { _cState = 'active'; _cBuffer = [{ kg, t }]; }
@@ -413,6 +417,18 @@ function _bestOf(arr, key) {
 }
 
 function _buildResults() {
+  if (_currentTest === 'peak') {
+    if (_laterality === 'comparison') {
+      const lPeak = _leftPeakKg  > 0 ? _leftPeakKg  : null;
+      const rPeak = _rightPeakKg > 0 ? _rightPeakKg : null;
+      const lsi   = (lPeak !== null && rPeak !== null)
+        ? (Math.min(lPeak, rPeak) / Math.max(lPeak, rPeak)) * 100
+        : null;
+      return { testType: 'peak', laterality: 'comparison', sides: { left: { peak: lPeak }, right: { peak: rPeak } }, lsi, timestamp: new Date().toISOString() };
+    }
+    return { testType: 'peak', laterality: _laterality, side: _activeSide, peak: _peakDisplayKg > 0 ? _peakDisplayKg : null, timestamp: new Date().toISOString() };
+  }
+
   if (_laterality === 'comparison') {
     const lPeak = _bestOf(_leftContractions,  'peak');
     const rPeak = _bestOf(_rightContractions, 'peak');
@@ -462,6 +478,8 @@ function _softReset() {
   _lastRawKg     = 0;
   _tareOffset    = 0;
   _peakDisplayKg = 0;
+  _leftPeakKg    = 0;
+  _rightPeakKg   = 0;
   _savedResults = null;
   _patient      = '';
   writeSession({ force: null, patient: '' });
@@ -538,10 +556,10 @@ function _bindUI() {
     });
   });
 
-  // Mode toggles — peak
-  document.querySelectorAll('#screen-peak .mode-btn').forEach(btn => {
+  // Mode toggles — peak config
+  document.querySelectorAll('#peak-section-config .mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('#screen-peak .mode-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#peak-section-config .mode-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       _laterality = btn.dataset.laterality;
     });
@@ -553,16 +571,6 @@ function _bindUI() {
       btn.classList.add('active');
       _laterality = btn.dataset.laterality;
     });
-  });
-
-  // Peak config inputs
-  document.getElementById('reps-input').addEventListener('change', e => {
-    _repsTarget = Math.max(1, Math.min(10, parseInt(e.target.value) || 3));
-    e.target.value = _repsTarget;
-  });
-  document.getElementById('threshold-input').addEventListener('change', e => {
-    _thresholdKg = Math.max(0.5, Math.min(20, parseFloat(e.target.value) || 2.0));
-    e.target.value = _thresholdKg.toFixed(1);
   });
 
   // RFD config inputs
@@ -588,13 +596,15 @@ function _bindUI() {
 
   // Stop buttons
   document.getElementById('btn-stop-peak').addEventListener('click', _endCurrentSide);
-  document.getElementById('btn-peak-restore').addEventListener('click', async () => {
-    await _stopMeasurement();
-    _contractions  = [];
-    _peakDisplayKg = 0;
-    _renderLiveReset();
-    _updateRepsCounter();
-    startMeasurement();
+  document.getElementById('btn-peak-restore').addEventListener('click', () => {
+    if (_activeSide === 'left')       { _leftPeakKg  = 0; _peakDisplayKg = 0; }
+    else if (_activeSide === 'right') { _rightPeakKg = 0; _peakDisplayKg = 0; }
+    else                              { _peakDisplayKg = 0; }
+    _drawForceBar(Math.max(0, _lastRawKg - _tareOffset));
+  });
+
+  document.querySelectorAll('.peak-side-btn').forEach(btn => {
+    btn.addEventListener('click', () => _switchPeakSide(btn.dataset.side));
   });
   document.getElementById('btn-stop-rfd').addEventListener('click', _endCurrentSide);
   document.getElementById('btn-stop-live').addEventListener('click', async () => {
@@ -604,6 +614,8 @@ function _bindUI() {
 
   // Results buttons
   document.getElementById('btn-peak-new-test').addEventListener('click', () => {
+    const titleEl = document.getElementById('peak-results-title');
+    if (titleEl) titleEl.textContent = 'Resultados del test';
     _showTestSection('peak', 'config');
   });
   document.getElementById('btn-rfd-new-test').addEventListener('click', () => {
@@ -681,7 +693,7 @@ function _renderSessionState() {
 function _openTest(test) {
   _currentTest = test;
   if (test === 'peak') {
-    const active = document.querySelector('#screen-peak .mode-btn.active');
+    const active = document.querySelector('#peak-section-config .mode-btn.active');
     _laterality = active?.dataset.laterality ?? 'single';
     _showScreen('screen-peak');
     _showTestSection('peak', 'config');
@@ -701,6 +713,8 @@ function _startTest() {
   _leftContractions  = [];
   _rightContractions = [];
   _contractions      = [];
+  _leftPeakKg  = 0;
+  _rightPeakKg = 0;
 
   _activeSide = _laterality === 'comparison' ? 'left'
               : _laterality === 'left'        ? 'left'
@@ -708,13 +722,38 @@ function _startTest() {
               : null;
 
   _showTestSection(_currentTest, 'measure');
-  _renderSideBanner(_activeSide);
-  _updateRepsCounter();
+
+  if (_currentTest === 'peak') {
+    const isComp    = _laterality === 'comparison';
+    const toggle    = document.getElementById('peak-measure-toggle');
+    const barSingle = document.getElementById('peak-bar-single');
+    const barsComp  = document.getElementById('peak-bars-comparison');
+    if (toggle)    toggle.hidden    = !isComp;
+    if (barSingle) barSingle.hidden = isComp;
+    if (barsComp)  barsComp.hidden  = !isComp;
+    if (isComp) {
+      document.querySelectorAll('.peak-side-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.side === 'left')
+      );
+    }
+  } else {
+    _renderSideBanner(_activeSide);
+    _updateRepsCounter();
+  }
+
   startMeasurement();
 }
 
 async function _endCurrentSide() {
   await _stopMeasurement();
+
+  if (_currentTest === 'peak') {
+    const payload = _buildResults();
+    _saveResults(payload);
+    _showTestSection('peak', 'results');
+    _renderFinalResults(payload);
+    return;
+  }
 
   if (_laterality === 'comparison' && _activeSide === 'left') {
     _leftContractions = [..._contractions];
@@ -736,9 +775,40 @@ async function _endCurrentSide() {
 
 // ── Force bar (peak visualization) ───────────────────────────────────────────
 function _updateForceBar(kg) {
-  if (kg > _peakDisplayKg) _peakDisplayKg = kg;
+  if (_activeSide === 'left')       { if (kg > _leftPeakKg)  _leftPeakKg  = kg; _peakDisplayKg = _leftPeakKg; }
+  else if (_activeSide === 'right') { if (kg > _rightPeakKg) _rightPeakKg = kg; _peakDisplayKg = _rightPeakKg; }
+  else                              { if (kg > _peakDisplayKg) _peakDisplayKg = kg; }
+  _drawForceBar(kg);
+}
 
-  const maxKg      = Math.max(_thresholdKg * 2.5, _peakDisplayKg * 1.2, 20);
+function _drawForceBar(kg) {
+  if (_laterality === 'comparison') {
+    const maxKg    = Math.max(_leftPeakKg * 1.3, _rightPeakKg * 1.3, kg * 1.5, 5);
+    const aId      = _activeSide;
+    const iId      = aId === 'left' ? 'right' : 'left';
+    const aPeak    = aId === 'left' ? _leftPeakKg  : _rightPeakKg;
+    const iPeak    = iId === 'left' ? _leftPeakKg  : _rightPeakKg;
+    const aPct     = Math.min((kg   / maxKg) * 100, 100);
+    const aPeakPct = Math.min((aPeak / maxKg) * 100, 100);
+    const iPeakPct = Math.min((iPeak / maxKg) * 100, 100);
+
+    const aFill  = document.getElementById(`peak-${aId}-fill`);
+    const aLine  = document.getElementById(`peak-${aId}-line`);
+    const aLabel = document.getElementById(`peak-${aId}-label`);
+    if (aFill)  aFill.style.height = aPct + '%';
+    if (aLine)  { aLine.hidden = aPeak === 0; aLine.style.bottom = aPeakPct + '%'; }
+    if (aLabel) aLabel.textContent = aPeak.toFixed(1) + ' Kg';
+
+    const iFill  = document.getElementById(`peak-${iId}-fill`);
+    const iLine  = document.getElementById(`peak-${iId}-line`);
+    const iLabel = document.getElementById(`peak-${iId}-label`);
+    if (iFill)  iFill.style.height = '0%';
+    if (iLine)  { iLine.hidden = iPeak === 0; iLine.style.bottom = iPeakPct + '%'; }
+    if (iLabel) iLabel.textContent = iPeak.toFixed(1) + ' Kg';
+    return;
+  }
+
+  const maxKg      = Math.max(_peakDisplayKg * 1.2, 20);
   const currentPct = Math.min((kg / maxKg) * 100, 100);
   const peakPct    = Math.min((_peakDisplayKg / maxKg) * 100, 100);
 
@@ -751,8 +821,18 @@ function _updateForceBar(kg) {
     peakLine.hidden = _peakDisplayKg === 0;
     peakLine.style.bottom = peakPct + '%';
   }
-  if (peakLabel) peakLabel.textContent = _peakDisplayKg.toFixed(1) + ' kg';
+  if (peakLabel) peakLabel.textContent = _peakDisplayKg.toFixed(1) + ' Kg';
 }
+
+function _switchPeakSide(side) {
+  _activeSide    = side;
+  _peakDisplayKg = side === 'left' ? _leftPeakKg : _rightPeakKg;
+  _drawForceBar(Math.max(0, _lastRawKg - _tareOffset));
+  document.querySelectorAll('.peak-side-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.side === side)
+  );
+}
+
 
 // ── Screen manager ────────────────────────────────────────────────────────────
 function _showScreen(id) {
@@ -817,6 +897,12 @@ function _renderLiveReset() {
     if (fill) fill.style.height = '0%';
     const line = document.getElementById('peak-peak-line');
     if (line) line.hidden = true;
+    ['left', 'right'].forEach(s => {
+      const f = document.getElementById(`peak-${s}-fill`);
+      const l = document.getElementById(`peak-${s}-line`);
+      if (f) f.style.height = '0%';
+      if (l) l.hidden = true;
+    });
   }
 }
 
@@ -847,6 +933,8 @@ function _renderSideBanner(side) {
 }
 
 function _renderFinalResults(payload) {
+  if (payload.testType === 'peak') { _renderPeakResults(payload); return; }
+
   const content = document.getElementById(`${_currentTest}-results-content`);
   if (!content) return;
   content.innerHTML = '';
@@ -866,6 +954,61 @@ function _renderFinalResults(payload) {
     aiSection.hidden = false;
   } else {
     if (aiSection) aiSection.hidden = true;
+  }
+}
+
+function _renderPeakResults(payload) {
+  const aiSection = document.getElementById('peak-ai-section');
+  const content   = document.getElementById('peak-results-content');
+  const titleEl   = document.getElementById('peak-results-title');
+  if (aiSection) aiSection.hidden = true;
+  if (!content)  return;
+  content.innerHTML = '';
+
+  if (payload.laterality === 'comparison') {
+    if (titleEl) titleEl.textContent = 'Análisis de fuerza';
+    const lPeak  = payload.sides?.left?.peak;
+    const rPeak  = payload.sides?.right?.peak;
+    const lsi    = payload.lsi;
+    const fmt    = v => (v !== null && v !== undefined) ? v.toFixed(2) : '0.00';
+    const lsiNum = lsi ?? 0;
+    const r      = 52;
+    const circ   = +(2 * Math.PI * r).toFixed(1);
+    const offset = +(circ * (1 - lsiNum / 100)).toFixed(1);
+    const color  = lsiNum >= 90 ? 'var(--green)' : lsiNum >= 75 ? 'var(--accent3)' : 'var(--danger)';
+    const lWeak  = lPeak !== null && rPeak !== null && lPeak < rPeak;
+    const rWeak  = lPeak !== null && rPeak !== null && rPeak < lPeak;
+    content.innerHTML = `
+      <div class="peak-analysis">
+        <div class="peak-analysis-row">
+          <div class="peak-analysis-side">
+            <span class="peak-analysis-label">izquierda</span>
+            <span class="peak-analysis-val${lWeak ? ' peak-analysis-val--weaker' : ''}">${fmt(lPeak)} <small>Kg</small></span>
+          </div>
+          <div class="peak-analysis-divider"></div>
+          <div class="peak-analysis-side">
+            <span class="peak-analysis-label">derecha</span>
+            <span class="peak-analysis-val${rWeak ? ' peak-analysis-val--weaker' : ''}">${fmt(rPeak)} <small>Kg</small></span>
+          </div>
+        </div>
+        <svg class="peak-donut" viewBox="0 0 140 140" width="140" height="140">
+          <circle cx="70" cy="70" r="${r}" fill="none" stroke="var(--surface2)" stroke-width="14"/>
+          <circle cx="70" cy="70" r="${r}" fill="none" stroke="${color}" stroke-width="14"
+            stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
+            stroke-linecap="round" transform="rotate(-90 70 70)"/>
+          <text x="70" y="70" text-anchor="middle" dy=".35em" class="peak-donut-text">${lsiNum.toFixed(1)}%</text>
+        </svg>
+        <p class="peak-analysis-subtitle">% LSI Fuerza Máxima</p>
+      </div>`;
+  } else {
+    if (titleEl) titleEl.textContent = 'Resultados del test';
+    const peak = payload.peak;
+    const fmt  = v => (v !== null && v !== undefined) ? v.toFixed(2) : '—';
+    content.innerHTML = `
+      <div class="peak-single-result">
+        <span class="peak-single-val">${fmt(peak)}</span>
+        <span class="peak-single-unit">Kg</span>
+      </div>`;
   }
 }
 

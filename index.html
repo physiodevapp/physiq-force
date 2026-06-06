@@ -174,15 +174,37 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .force-meter-readout{display:flex;align-items:baseline;justify-content:center;gap:.4rem;padding:.5rem 0;}
 .force-bar-wrap{flex:1;position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;min-height:200px;}
 .force-bar-fill{position:absolute;bottom:0;left:0;right:0;height:0%;background:var(--surface2);transition:height 40ms linear;}
-.force-peak-line{position:absolute;left:0;right:0;display:flex;align-items:center;gap:.5rem;padding:0 .875rem;transform:translateY(-50%);}
-.force-peak-label{font-family:'DM Mono',monospace;font-size:.9rem;color:var(--accent);white-space:nowrap;}
-.force-peak-track{flex:1;height:2px;background:var(--accent);}
+.force-peak-line{position:absolute;left:0;right:0;display:flex;flex-direction:column;padding:0 .875rem;}
+.force-peak-label{font-family:'DM Mono',monospace;font-size:.9rem;color:var(--accent);white-space:nowrap;padding-bottom:.2rem;}
+.force-peak-track{width:100%;height:2px;background:var(--accent);}
+
+/* ── Comparison bars ─────────────────────────────────────────────────── */
+.peak-bars-wrap{display:flex;gap:.75rem;flex:1;}
+.peak-bar-col{flex:1;display:flex;flex-direction:column;gap:.35rem;}
+.peak-bar-col-label{font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:center;}
+.peak-bars-wrap .force-bar-wrap{min-height:0;flex:1;}
 .force-meter-footer{display:flex;justify-content:flex-end;}
 .force-reps-count{font-family:'DM Mono',monospace;font-size:.82rem;color:var(--text3);}
 .measure-actions{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
 
 /* ── Side banner ─────────────────────────────────────────────────────── */
 .side-banner{text-align:center;padding:.5rem 1rem;border-radius:8px;border:1px solid rgba(251,146,60,.3);background:rgba(251,146,60,.07);color:var(--accent);font-size:.85rem;font-weight:500;}
+
+/* ── Peak analysis results ───────────────────────────────────────────── */
+.peak-analysis{display:flex;flex-direction:column;align-items:center;gap:1rem;padding:.25rem 0;}
+.peak-analysis-row{display:flex;align-items:center;justify-content:center;gap:1.5rem;width:100%;}
+.peak-analysis-side{flex:1;display:flex;flex-direction:column;align-items:center;gap:.25rem;}
+.peak-analysis-label{font-size:.75rem;color:var(--text3);}
+.peak-analysis-val{font-family:'DM Mono',monospace;font-size:1.65rem;font-weight:300;color:var(--text);}
+.peak-analysis-val small{font-size:.7rem;color:var(--text3);}
+.peak-analysis-val--weaker{color:#60a5fa;}
+.peak-analysis-divider{width:1px;background:var(--border);align-self:stretch;}
+.peak-donut{display:block;margin:0 auto;}
+.peak-donut-text{font-family:'DM Mono',monospace;font-size:18px;font-weight:300;fill:var(--text);}
+.peak-analysis-subtitle{font-size:.78rem;color:var(--text3);}
+.peak-single-result{display:flex;align-items:baseline;justify-content:center;gap:.4rem;padding:1.5rem 0;}
+.peak-single-val{font-family:'DM Mono',monospace;font-size:3rem;font-weight:300;color:var(--text);}
+.peak-single-unit{font-size:.9rem;color:var(--text3);}
 
 /* ── Reps list ───────────────────────────────────────────────────────── */
 .reps-list{list-style:none;display:flex;flex-direction:column;gap:.35rem;}
@@ -357,15 +379,7 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
           <button class="mode-btn active" data-laterality="single">Individual</button>
           <button class="mode-btn" data-laterality="comparison">Izquierda / Derecha</button>
         </div>
-        <p class="info-desc">Mide la contracción voluntaria máxima (MVC). En modo <strong>Izquierda / Derecha</strong> se calcula el índice de asimetría bilateral.</p>
-        <div class="field-row">
-          <span class="field-label">Contracciones por lado</span>
-          <input id="reps-input" class="field-input" type="number" min="1" max="10" value="3">
-        </div>
-        <div class="field-row">
-          <span class="field-label">Umbral de detección (kg)</span>
-          <input id="threshold-input" class="field-input" type="number" min="0.5" max="20" step="0.5" value="2.0">
-        </div>
+        <p class="info-desc">Mide la contracción voluntaria máxima (MVC). En modo <strong>Izquierda / Derecha</strong> se calcula el índice de simetría bilateral (LSI).</p>
       </div>
       <button id="btn-start-peak" class="btn btn-primary btn-full">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
@@ -375,21 +389,45 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 
     <!-- Measure -->
     <div id="peak-section-measure" hidden>
-      <div id="peak-side-banner" class="side-banner" hidden></div>
+      <div id="peak-measure-toggle" class="mode-toggle" hidden>
+        <button class="peak-side-btn mode-btn active" data-side="left">izquierda</button>
+        <button class="peak-side-btn mode-btn" data-side="right">derecha</button>
+      </div>
       <div class="force-meter">
         <div class="force-meter-readout">
           <span id="peak-live-force" class="live-force-value">0.0</span>
-          <span class="live-force-unit">kg</span>
+          <span class="live-force-unit">Kg</span>
         </div>
-        <div class="force-bar-wrap">
+        <!-- Barra individual -->
+        <div id="peak-bar-single" class="force-bar-wrap">
           <div id="peak-bar-fill" class="force-bar-fill"></div>
           <div id="peak-peak-line" class="force-peak-line" hidden>
             <span id="peak-peak-label" class="force-peak-label"></span>
             <div class="force-peak-track"></div>
           </div>
         </div>
-        <div class="force-meter-footer">
-          <span id="peak-reps-counter" class="force-reps-count">0 / 3</span>
+        <!-- Barras comparación (izq / der) -->
+        <div id="peak-bars-comparison" class="peak-bars-wrap" hidden>
+          <div class="peak-bar-col">
+            <p class="peak-bar-col-label">izquierda</p>
+            <div class="force-bar-wrap">
+              <div id="peak-left-fill" class="force-bar-fill"></div>
+              <div id="peak-left-line" class="force-peak-line" hidden>
+                <span id="peak-left-label" class="force-peak-label"></span>
+                <div class="force-peak-track"></div>
+              </div>
+            </div>
+          </div>
+          <div class="peak-bar-col">
+            <p class="peak-bar-col-label">derecha</p>
+            <div class="force-bar-wrap">
+              <div id="peak-right-fill" class="force-bar-fill"></div>
+              <div id="peak-right-line" class="force-peak-line" hidden>
+                <span id="peak-right-label" class="force-peak-label"></span>
+                <div class="force-peak-track"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="measure-actions">
@@ -408,7 +446,7 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
         </div>
       </div>
       <div class="card">
-        <p class="card-title">Resultados del test</p>
+        <p id="peak-results-title" class="card-title">Resultados del test</p>
         <div id="peak-results-content"></div>
       </div>
       <button id="btn-peak-new-test" class="btn btn-secondary btn-full">Repetir test</button>
