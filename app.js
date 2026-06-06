@@ -476,6 +476,14 @@ function _loadSession() {
   });
 }
 
+// ── Translate banner ──────────────────────────────────────────────────────────
+let _translateTimer = null;
+function _hideTranslateBanner() {
+  clearTimeout(_translateTimer);
+  const banner = document.getElementById('translate-banner');
+  if (banner) banner.classList.remove('visible');
+}
+
 // ── UI bindings ───────────────────────────────────────────────────────────────
 function _bindUI() {
   // BLE badge → open BLE dialog
@@ -613,11 +621,12 @@ function _bindUI() {
   // Global / translate btn
   document.getElementById('btn-global').addEventListener('click', () => {
     const banner = document.getElementById('translate-banner');
-    banner.classList.toggle('visible');
+    if (!banner) return;
+    banner.classList.add('visible');
+    clearTimeout(_translateTimer);
+    _translateTimer = setTimeout(_hideTranslateBanner, 4000);
   });
-  document.getElementById('translate-banner-close').addEventListener('click', () => {
-    document.getElementById('translate-banner').classList.remove('visible');
-  });
+  document.getElementById('translate-banner-close').addEventListener('click', _hideTranslateBanner);
 
   // Hub logo
   document.querySelector('.logo-main')?.addEventListener('click', () => {
