@@ -68,6 +68,9 @@ let _rfdCountdown = 3;
 const _sessionCh  = new BroadcastChannel('physiq-session');
 let _patient      = '';
 let _savedResults = [];
+let _sessionLabel = '';
+let _sessionDate  = '';
+let _inSubScreen  = false;
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -76,6 +79,13 @@ document.addEventListener('DOMContentLoaded', () => {
   _bindUI();
   _loadSession();
   _registerSW();
+});
+
+window.addEventListener('popstate', async () => {
+  if (_measuring) await _stopMeasurement();
+  if (_liveMode)  await _stopLive();
+  _inSubScreen = false;
+  document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'screen-menu'; });
 });
 
 // ── BLE support ───────────────────────────────────────────────────────────────
@@ -102,7 +112,6 @@ async function bleConnect() {
     await _dataChar.startNotifications();
     _dataChar.addEventListener('characteristicvaluechanged', _onData);
 
-    await _writeCmd(CMD.GET_BATTERY);
     await _writeCmd(CMD.GET_VERSION);
     await _writeCmd(CMD.START_WEIGHT);
 
@@ -476,7 +485,9 @@ _sessionCh.onmessage = ({ data }) => {
 
 function _saveResults(payload) {
   _savedResults = [..._savedResults, payload];
-  writeSession({ force: _savedResults, patient: _patient }).then(() => {
+  if (!_sessionDate) _sessionDate = new Date().toLocaleDateString('es-ES');
+  _renderSessionState();
+  writeSession({ force: _savedResults, patient: _patient, date: _sessionDate }).then(() => {
     if (_patient) _sessionCh.postMessage({ type: 'SESSION_PATIENT', patient: _patient });
   });
   _sessionCh.postMessage({ type: 'SESSION_FORCE', force: _savedResults });
@@ -494,7 +505,8 @@ function _softReset() {
   _rightPeakKg   = 0;
   _savedResults = [];
   _patient      = '';
-  writeSession({ force: [], patient: '' });
+  _sessionDate  = '';
+  writeSession({ force: [], patient: '', date: '' });
   _sessionCh.postMessage({ type: 'SESSION_FORCE', force: [] });
   _sessionCh.postMessage({ type: 'SESSION_PATIENT', patient: '' });
   _syncPatientInputs('');
@@ -506,10 +518,39 @@ function _loadSession() {
   readSession().then(s => {
     if (!s) return;
     _patient      = s.patient ?? '';
+    _sessionDate  = s.date    ?? '';
     _savedResults = Array.isArray(s.force) ? s.force : (s.force ? [s.force] : []);
     _syncPatientInputs(_patient);
     _renderSessionState();
   });
+}
+
+// ── Confirm banner ────────────────────────────────────────────────────────────
+function showConfirmBanner(title, text, actionLabel, onConfirm) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-banner';
+  overlay.innerHTML = `
+    <div class="confirm-box">
+      <div class="confirm-box-title">${title}</div>
+      <div class="confirm-box-text">${text}</div>
+      <div class="confirm-box-btns">
+        <button class="btn btn-secondary" id="confirmCancel" style="font-size:.85rem;padding:9px 18px;">Cancelar</button>
+        <button class="btn btn-primary"   id="confirmAction" style="font-size:.85rem;padding:9px 18px;">${actionLabel}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const dismiss = () => overlay.remove();
+  overlay.querySelector('#confirmCancel').onclick = dismiss;
+  overlay.querySelector('#confirmAction').onclick = () => { dismiss(); onConfirm(); };
+}
+
+function promptClearSession() {
+  showConfirmBanner(
+    'Sesión en curso',
+    `${_sessionLabel}<br>¿Borrar y empezar de nuevo?`,
+    'Borrar sesión',
+    () => { _softReset(); }
+  );
 }
 
 // ── Translate banner ──────────────────────────────────────────────────────────
@@ -526,6 +567,7 @@ function _bindUI() {
   document.getElementById('btn-ble').addEventListener('click', () => {
     _updateBLEDialog();
     document.getElementById('dialog-ble').showModal();
+    if (_device?.gatt?.connected) _writeCmd(CMD.GET_BATTERY);
   });
 
   // BLE dialog: scan
@@ -564,7 +606,7 @@ function _bindUI() {
     btn.addEventListener('click', async () => {
       if (_measuring) await _stopMeasurement();
       if (_liveMode)  await _stopLive();
-      _showScreen(btn.dataset.back);
+      if (_inSubScreen) history.back(); else _showScreen(btn.dataset.back);
     });
   });
 
@@ -621,7 +663,7 @@ function _bindUI() {
   document.getElementById('btn-stop-rfd').addEventListener('click', _endCurrentSide);
   document.getElementById('btn-stop-live').addEventListener('click', async () => {
     await _stopLive();
-    _showScreen('screen-menu');
+    if (_inSubScreen) history.back(); else _showScreen('screen-menu');
   });
 
   // Results buttons
@@ -641,33 +683,28 @@ function _bindUI() {
     _renderMeasurementsList();
     _showScreen('screen-measurements');
   });
-  document.getElementById('btn-new-measurement').addEventListener('click', () => _showScreen('screen-menu'));
+  document.getElementById('btn-new-measurement').addEventListener('click', () => {
+    if (_inSubScreen) history.back(); else _showScreen('screen-menu');
+  });
+
+  // Resumen global — copy button and chip clicks
+  document.getElementById('btn-copy-force').addEventListener('click', _copyForceToClipboard);
+  document.getElementById('globalExportChips').addEventListener('click', e => {
+    const chip = e.target.closest('.region-chip');
+    if (!chip) return;
+    _renderMeasurementsList(chip.dataset.type);
+    _showScreen('screen-measurements');
+  });
 
   // Reset
   document.getElementById('btn-reset').addEventListener('click', _softReset);
 
-  // Session icon (person) → opens session dialog
-  document.getElementById('btn-session').addEventListener('click', () => {
-    document.getElementById('dialog-session').showModal();
-  });
-  document.getElementById('btn-session-close').addEventListener('click', () => {
-    document.getElementById('dialog-session').close();
-  });
-  document.getElementById('btn-clear-session').addEventListener('click', () => {
-    document.getElementById('dialog-session').close();
-    _softReset();
-  });
+  // Session icon (person) → confirm banner
+  document.getElementById('btn-session').addEventListener('click', promptClearSession);
 
-  // Patient name — menu field (primary)
+  // Patient name
   document.getElementById('menu-patient-name').addEventListener('input', e => {
     _patient = e.target.value.trim();
-    document.getElementById('patient-name').value = e.target.value;
-    _persistPatient();
-  });
-  // Patient name — session dialog field (keeps in sync)
-  document.getElementById('patient-name').addEventListener('input', e => {
-    _patient = e.target.value.trim();
-    document.getElementById('menu-patient-name').value = e.target.value;
     _persistPatient();
   });
 
@@ -690,22 +727,27 @@ function _bindUI() {
 
 // ── Patient helpers ───────────────────────────────────────────────────────────
 function _persistPatient() {
-  writeSession({ patient: _patient }).then(() =>
+  if (!_sessionDate) _sessionDate = new Date().toLocaleDateString('es-ES');
+  writeSession({ patient: _patient, date: _sessionDate }).then(() =>
     _sessionCh.postMessage({ type: 'SESSION_PATIENT', patient: _patient })
   );
   _renderSessionState();
 }
 
 function _syncPatientInputs(value) {
-  const menuInput   = document.getElementById('menu-patient-name');
-  const dialogInput = document.getElementById('patient-name');
-  if (menuInput)   menuInput.value   = value;
-  if (dialogInput) dialogInput.value = value;
+  const menuInput = document.getElementById('menu-patient-name');
+  if (menuInput) menuInput.value = value;
 }
 
 function _renderSessionState() {
+  const active = !!_patient || _savedResults.length > 0;
   const btn = document.getElementById('btn-session');
-  if (btn) btn.classList.toggle('active', !!_patient || _savedResults.length > 0);
+  if (btn) btn.classList.toggle('active', active);
+  const date = _sessionDate || new Date().toLocaleDateString('es-ES');
+  _sessionLabel = active
+    ? (_patient ? `${_patient} · ${date}` : `Sesión · ${date}`)
+    : '';
+  _renderGlobalExport();
 }
 
 // ── Test routing ──────────────────────────────────────────────────────────────
@@ -856,6 +898,12 @@ function _switchPeakSide(side) {
 // ── Screen manager ────────────────────────────────────────────────────────────
 function _showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== id; });
+  if (id === 'screen-menu') {
+    _inSubScreen = false;
+  } else if (!_inSubScreen) {
+    _inSubScreen = true;
+    history.pushState({ physiqForce: true }, '');
+  }
 }
 
 function _showTestSection(test, section) {
@@ -887,10 +935,7 @@ function _doSoftTare() {
 }
 
 function _renderBattery(pct) {
-  const pctEl = document.getElementById('battery-pct');
-  if (pctEl) { pctEl.textContent = `${pct} %`; }
-
-  const active = pct >= 66 ? 3 : pct >= 33 ? 2 : 1;
+const active = pct >= 66 ? 3 : pct >= 33 ? 2 : 1;
   const color  = active === 3 ? '#38d9a9' : active === 2 ? '#fcd34d' : '#ff4757';
   const dim    = '#232d45';
 
@@ -1088,13 +1133,96 @@ function _renderRepsTable(reps, container) {
   container.appendChild(table);
 }
 
+// ── Global export (Resumen global) ───────────────────────────────────────────
+function _renderGlobalExport() {
+  const card  = document.getElementById('globalExportCard');
+  const chips = document.getElementById('globalExportChips');
+  if (!card) return;
+
+  const peakCount = _savedResults.filter(r => r.testType === 'peak').length;
+  const rfdCount  = _savedResults.filter(r => r.testType === 'rfd').length;
+
+  if (!peakCount && !rfdCount) { card.style.display = 'none'; return; }
+
+  const items = [
+    peakCount && { id: 'peak', label: 'Fuerza Pico', count: peakCount },
+    rfdCount  && { id: 'rfd',  label: 'RFD',         count: rfdCount  },
+  ].filter(Boolean);
+
+  chips.innerHTML = items.map(({ id, label, count }) =>
+    `<span class="region-chip" data-type="${id}">${label} <span class="chip-count">${count}</span></span>`
+  ).join('');
+
+  card.style.display = 'block';
+}
+
+function _copyForceToClipboard() {
+  const patient = _patient ? `\nPaciente: ${_patient}` : '';
+  const date    = _sessionDate || new Date().toLocaleDateString('es-ES');
+
+  const peakResults = _savedResults.filter(r => r.testType === 'peak');
+  const rfdResults  = _savedResults.filter(r => r.testType === 'rfd');
+  const sections    = [];
+
+  if (peakResults.length) {
+    const lines = peakResults.map(r => {
+      if (r.sides) {
+        const l = r.sides.left?.peak?.toFixed(1)  ?? '—';
+        const d = r.sides.right?.peak?.toFixed(1) ?? '—';
+        let line = `  ${r.label}: Izq ${l} kg | Der ${d} kg`;
+        if (r.asymmetryIndex != null) line += ` | AI ${r.asymmetryIndex.toFixed(1)} %`;
+        return line;
+      }
+      let line = `  ${r.label}: ${r.peak?.toFixed(1) ?? '—'} kg`;
+      if (r.ttPeak != null) line += ` | TtP ${r.ttPeak} ms`;
+      return line;
+    });
+    sections.push(`Fuerza Pico (MVC):\n${lines.join('\n')}`);
+  }
+
+  if (rfdResults.length) {
+    const lines = rfdResults.map(r => {
+      if (r.sides) {
+        const l = r.sides.left?.rfd?.toFixed(0)  ?? '—';
+        const d = r.sides.right?.rfd?.toFixed(0) ?? '—';
+        let line = `  ${r.label}: Izq ${l} N/s | Der ${d} N/s`;
+        if (r.lsi != null) line += ` | LSI ${r.lsi.toFixed(1)} %`;
+        return line;
+      }
+      let line = `  ${r.label}: ${r.rfd?.toFixed(0) ?? '—'} N/s`;
+      if (r.peak != null) line += ` | Pico ${r.peak.toFixed(1)} kg`;
+      return line;
+    });
+    sections.push(`RFD:\n${lines.join('\n')}`);
+  }
+
+  const text = `MEDICIÓN PhysiQ-Force${patient}\nFecha: ${date}\n\n${sections.join('\n\n')}`;
+  navigator.clipboard.writeText(text).then(() => _showCopyFeedback());
+}
+
+function _showCopyFeedback() {
+  document.getElementById('copyFeedback')?.remove();
+  const toast = document.createElement('div');
+  toast.id = 'copyFeedback';
+  toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--accent);color:var(--accent);font-size:.8rem;font-family:\'Outfit\',sans-serif;padding:10px 20px;border-radius:8px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.4);';
+  toast.textContent = '✓ Mediciones copiadas al portapapeles';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
 // ── Measurements list ─────────────────────────────────────────────────────────
-function _renderMeasurementsList() {
-  const list = document.getElementById('measurements-list');
+function _renderMeasurementsList(type = null) {
+  const list    = document.getElementById('measurements-list');
+  const titleEl = document.getElementById('measurements-title');
   if (!list) return;
+
+  const titles = { peak: 'Fuerza Pico', rfd: 'RFD' };
+  if (titleEl) titleEl.textContent = type ? (titles[type] ?? 'Mediciones') : 'Mediciones';
+
+  const results = type ? _savedResults.filter(r => r.testType === type) : _savedResults;
   list.innerHTML = '';
 
-  if (!_savedResults.length) {
+  if (!results.length) {
     const empty = document.createElement('p');
     empty.className = 'measurements-empty';
     empty.textContent = 'Sin mediciones guardadas en esta sesión.';
@@ -1102,7 +1230,7 @@ function _renderMeasurementsList() {
     return;
   }
 
-  _savedResults.forEach((m, i) => {
+  results.forEach((m, i) => {
     const card = document.createElement('div');
     card.className = 'mcard';
 

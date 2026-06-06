@@ -37,9 +37,8 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .header-right{display:flex;align-items:center;gap:.5rem;}
 
 /* session btn — hidden until active */
-.session-btn{display:none;background:transparent;border:1px solid var(--border);cursor:pointer;color:var(--accent);width:34px;height:34px;border-radius:50%;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
-.session-btn.active{display:flex;}
-.session-btn:hover{border-color:var(--border2);}
+.session-btn{display:none;background:none;border:none;cursor:pointer;color:var(--accent);padding:6px;flex-shrink:0;}
+.session-btn.active{display:flex;align-items:center;justify-content:center;}
 
 /* global / translate btn */
 .btn-global{position:relative;background:transparent;border:none;color:var(--text3);font-size:1rem;cursor:pointer;padding:4px 8px;border-radius:6px;transition:color .2s;line-height:1;flex-shrink:0;}
@@ -273,12 +272,23 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 .ble-scan-desc strong{color:var(--text);}
 .ble-battery-row{display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:1rem 0 .75rem;}
 .ble-battery-inner{display:flex;align-items:center;gap:.6rem;}
-.ble-battery-pct{font-family:'DM Mono',monospace;font-size:1rem;font-weight:500;color:var(--green);}
 .ble-battery-label{font-size:.75rem;color:var(--text3);}
 .ble-connected-desc{text-align:center;font-size:.88rem;color:var(--text2);line-height:1.6;margin-bottom:1rem;}
 .ble-force-row{display:flex;align-items:baseline;justify-content:center;gap:.35rem;padding:.6rem 0 1rem;}
 .ble-force-val{font-family:'DM Mono',monospace;font-size:2.75rem;font-weight:300;color:var(--text);}
 .ble-force-unit{font-size:.88rem;color:var(--text3);}
+.summary-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.summary-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.summary-title{font-family:'DM Serif Display',serif;font-size:16px;color:var(--accent);}
+.region-chips{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px;}
+.region-chip{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 10px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);cursor:pointer;transition:border-color .2s,color .2s;}
+.region-chip:hover{border-color:var(--accent);color:var(--text);}
+.region-chip .chip-count{color:var(--accent);}
+.confirm-banner{position:fixed;top:0;left:0;right:0;bottom:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:fadeUp .2s ease;}
+.confirm-box{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:1.8rem;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+.confirm-box-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--text);margin-bottom:.6rem;}
+.confirm-box-text{font-size:.83rem;color:var(--text2);line-height:1.5;margin-bottom:1.4rem;}
+.confirm-box-btns{display:flex;gap:.75rem;justify-content:flex-end;}
 </style>
 </head>
 <body>
@@ -328,6 +338,14 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 
     <label class="menu-section-label" for="menu-patient-name">Paciente</label>
     <input id="menu-patient-name" class="text-input" type="text" placeholder="Nombre (opcional)" autocomplete="off">
+
+    <div class="summary-card" id="globalExportCard" style="display:none">
+      <div class="summary-header">
+        <span class="summary-title">Resumen global</span>
+        <button id="btn-copy-force" title="Copiar mediciones" style="background:none;border:1px solid var(--border2);border-radius:8px;padding:5px 10px;font-size:.75rem;color:var(--text2);cursor:pointer;font-family:'DM Mono',monospace;">📋 Copiar</button>
+      </div>
+      <div class="region-chips" id="globalExportChips"></div>
+    </div>
 
     <p class="menu-section-label">Evaluación</p>
 
@@ -599,7 +617,7 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
         Volver
       </button>
-      <span class="config-title">Mediciones</span>
+      <span class="config-title" id="measurements-title">Mediciones</span>
     </div>
 
     <div id="measurements-list"></div>
@@ -679,7 +697,6 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
           <rect id="battery-seg2" x="12" y="3.5" width="6" height="11" rx="1.5" fill="#38d9a9"/>
           <rect id="battery-seg3" x="21" y="3.5" width="6" height="11" rx="1.5" fill="#38d9a9"/>
         </svg>
-        <span id="battery-pct" class="ble-battery-pct"></span>
       </div>
       <span class="ble-battery-label">Progressor conectado</span>
     </div>
@@ -693,25 +710,6 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
   </div>
 </dialog>
 
-<!-- ── Session dialog ──────────────────────────────────────────────────────── -->
-<dialog id="dialog-session">
-  <div class="dialog-header">
-    <span class="dialog-title">Sesión en curso</span>
-    <button id="btn-session-close" class="dialog-close" aria-label="Cerrar">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-  </div>
-  <div class="field-group">
-    <label for="patient-name">Paciente</label>
-    <input id="patient-name" class="text-input" type="text" placeholder="Nombre del paciente" autocomplete="off">
-  </div>
-  <div style="margin-top:1.25rem;">
-    <button id="btn-clear-session" class="btn btn-danger btn-full" style="font-size:.85rem;">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-      Limpiar sesión
-    </button>
-  </div>
-</dialog>
 
 <script src="lib/session.js"></script>
 <script src="app.js"></script>
