@@ -112,12 +112,6 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .btn-danger:hover{background:rgba(255,71,87,.18);}
 .btn-full{width:100%;}
 
-/* ── Patient field (menu) ────────────────────────────────────────────── */
-.patient-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.875rem 1.25rem;}
-.patient-card-label{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:.5rem;}
-.patient-input-wrap{display:flex;align-items:center;gap:.5rem;}
-.patient-avatar{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text3);flex-shrink:0;}
-.patient-avatar.has-patient{color:var(--accent);border-color:rgba(251,146,60,.35);background:rgba(251,146,60,.06);}
 
 /* ── Menu screen ─────────────────────────────────────────────────────── */
 .menu-section-label{font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:.25rem 0 .1rem;}
@@ -281,19 +275,6 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
   <!-- ── Menu ───────────────────────────────────────────────────────────── -->
   <div id="screen-menu" class="screen" hidden>
 
-    <!-- Patient name field -->
-    <div class="patient-card">
-      <p class="patient-card-label">Paciente (opcional)</p>
-      <div class="patient-input-wrap">
-        <span id="patient-avatar" class="patient-avatar" aria-hidden="true">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-          </svg>
-        </span>
-        <input id="menu-patient-name" class="text-input" type="text" placeholder="Nombre del paciente" autocomplete="off">
-      </div>
-    </div>
-
     <p class="menu-section-label">Evaluación</p>
 
     <button class="menu-card" data-test="peak">
@@ -339,8 +320,8 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 
   </div>
 
-  <!-- ── Config: Fuerza Pico ─────────────────────────────────────────────── -->
-  <div id="screen-config-peak" class="screen" hidden>
+  <!-- ── Fuerza Pico ────────────────────────────────────────────────────── -->
+  <div id="screen-peak" class="screen" hidden>
 
     <div class="config-nav">
       <button class="btn-back" data-back="screen-menu">
@@ -350,138 +331,193 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
       <span class="config-title">Fuerza Pico / MVC</span>
     </div>
 
-    <div class="card">
-      <div class="mode-toggle">
-        <button class="mode-btn active" data-laterality="single">Individual</button>
-        <button class="mode-btn" data-laterality="comparison">Izquierda / Derecha</button>
+    <!-- Config -->
+    <div id="peak-section-config">
+      <div class="card">
+        <div class="mode-toggle">
+          <button class="mode-btn active" data-laterality="single">Individual</button>
+          <button class="mode-btn" data-laterality="comparison">Izquierda / Derecha</button>
+        </div>
+        <p class="info-desc">Mide la contracción voluntaria máxima (MVC). En modo <strong>Izquierda / Derecha</strong> se calcula el índice de asimetría bilateral.</p>
+        <div class="field-row">
+          <span class="field-label">Contracciones por lado</span>
+          <input id="reps-input" class="field-input" type="number" min="1" max="10" value="3">
+        </div>
+        <div class="field-row">
+          <span class="field-label">Umbral de detección (kg)</span>
+          <input id="threshold-input" class="field-input" type="number" min="0.5" max="20" step="0.5" value="2.0">
+        </div>
       </div>
-      <p class="info-desc">Mide la contracción voluntaria máxima (MVC). En modo <strong>Izquierda / Derecha</strong> se calcula el índice de asimetría bilateral.</p>
-      <div class="field-row">
-        <span class="field-label">Contracciones por lado</span>
-        <input id="reps-input" class="field-input" type="number" min="1" max="10" value="3">
-      </div>
-      <div class="field-row">
-        <span class="field-label">Umbral de detección (kg)</span>
-        <input id="threshold-input" class="field-input" type="number" min="0.5" max="20" step="0.5" value="2.0">
-      </div>
+      <button id="btn-start-peak" class="btn btn-primary btn-full">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        Iniciar test
+      </button>
     </div>
 
-    <button id="btn-start-peak" class="btn btn-primary btn-full">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-      Iniciar test
-    </button>
+    <!-- Measure -->
+    <div id="peak-section-measure" hidden>
+      <div id="peak-side-banner" class="side-banner" hidden></div>
+      <div class="card">
+        <div class="live-force-wrap">
+          <span id="peak-live-force" class="live-force-value">0.0</span>
+          <span class="live-force-unit">kg</span>
+        </div>
+        <canvas id="peak-canvas" class="force-canvas"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title-row">
+          <span class="card-title">Contracciones</span>
+          <span id="peak-reps-counter" style="font-family:'DM Mono',monospace;font-size:.82rem;color:var(--text3);">0 / 3</span>
+        </div>
+        <ul id="peak-reps-list" class="reps-list">
+          <li style="font-size:.78rem;color:var(--text3);padding:.2rem 0 .4rem;">Nº &nbsp;·&nbsp; Pico (kg) &nbsp;·&nbsp; RFD (kg/s) &nbsp;·&nbsp; T. al pico (ms)</li>
+        </ul>
+      </div>
+      <button id="btn-stop-peak" class="btn btn-danger btn-full">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+        Finalizar lado
+      </button>
+    </div>
+
+    <!-- Results -->
+    <div id="peak-section-results" hidden>
+      <div id="peak-ai-section" class="card" hidden>
+        <p class="card-title">Índice de asimetría</p>
+        <div id="peak-ai-badge" class="ai-badge">
+          <span id="peak-ai-value" class="ai-value">—</span>
+          <span class="ai-formula">AI = (fuerte − débil) / fuerte × 100</span>
+        </div>
+      </div>
+      <div class="card">
+        <p class="card-title">Resultados del test</p>
+        <div id="peak-results-content"></div>
+      </div>
+      <button id="btn-peak-new-test" class="btn btn-secondary btn-full">Repetir test</button>
+      <button id="btn-peak-menu" class="btn btn-primary btn-full">Volver al menú</button>
+    </div>
 
   </div>
 
-  <!-- ── Config: RFD ─────────────────────────────────────────────────────── -->
-  <div id="screen-config-rfd" class="screen" hidden>
+  <!-- ── RFD ────────────────────────────────────────────────────────────── -->
+  <div id="screen-rfd" class="screen" hidden>
 
     <div class="config-nav">
       <button class="btn-back" data-back="screen-menu">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
         Volver
       </button>
-      <span class="config-title">Configuración de RFD</span>
+      <span class="config-title">RFD</span>
     </div>
 
-    <div class="card">
-      <div class="mode-toggle">
-        <button class="mode-btn active" data-laterality="single">Individual</button>
-        <button class="mode-btn" data-laterality="comparison">Izquierda / Derecha</button>
-      </div>
-      <div class="field-row">
-        <span class="field-label">Contracciones por lado</span>
-        <input id="rfd-reps-input" class="field-input" type="number" min="1" max="10" value="3">
-      </div>
-      <div class="field-row">
-        <span class="field-label">Umbral de detección (kg)</span>
-        <input id="rfd-threshold-input" class="field-input" type="number" min="0.5" max="20" step="0.5" value="2.0">
-      </div>
-      <div class="field-row">
-        <span class="field-label">Cuenta regresiva (s)</span>
-        <input id="rfd-countdown-input" class="field-input" type="number" min="0" max="10" value="3">
-      </div>
-    </div>
-
-    <div class="card">
-      <p class="info-block-title">Información de RFD</p>
-      <div class="rfd-charts">
-        <div class="rfd-chart-item">
-          <svg class="rfd-chart-svg" width="100" height="70" viewBox="0 0 100 70">
-            <line x1="10" y1="60" x2="90" y2="60" stroke="#232d45" stroke-width="1"/>
-            <line x1="10" y1="10" x2="10" y2="60" stroke="#232d45" stroke-width="1"/>
-            <line x1="10" y1="26" x2="90" y2="26" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
-            <line x1="10" y1="46" x2="90" y2="46" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
-            <text x="7" y="29" text-anchor="end" font-size="8" fill="#5a6e8a">80%</text>
-            <text x="7" y="49" text-anchor="end" font-size="8" fill="#5a6e8a">20%</text>
-            <path d="M 15 58 Q 32 54 48 38 Q 62 20 82 14" stroke="#fcd34d" stroke-width="2" fill="none" stroke-linecap="round"/>
-            <line x1="29" y1="46" x2="63" y2="26" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3,2"/>
-          </svg>
-          <span class="rfd-chart-label">RFD 20-80%</span>
+    <!-- Config -->
+    <div id="rfd-section-config">
+      <div class="card">
+        <div class="mode-toggle">
+          <button class="mode-btn active" data-laterality="single">Individual</button>
+          <button class="mode-btn" data-laterality="comparison">Izquierda / Derecha</button>
         </div>
-        <div class="rfd-chart-item">
-          <svg class="rfd-chart-svg" width="100" height="70" viewBox="0 0 100 70">
-            <line x1="10" y1="60" x2="90" y2="60" stroke="#232d45" stroke-width="1"/>
-            <line x1="10" y1="10" x2="10" y2="60" stroke="#232d45" stroke-width="1"/>
-            <path d="M 15 58 Q 32 54 48 38 Q 62 20 82 14" stroke="#fcd34d" stroke-width="2" fill="none" stroke-linecap="round"/>
-            <line x1="28" y1="58" x2="28" y2="10" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
-            <line x1="68" y1="58" x2="68" y2="10" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
-            <line x1="28" y1="20" x2="68" y2="20" stroke="#e8edf5" stroke-width="1"/>
-            <text x="48" y="17" text-anchor="middle" font-size="8" fill="#8fa0bf">Time</text>
-            <text x="28" y="68" text-anchor="middle" font-size="7" fill="#5a6e8a">Onset</text>
-            <line x1="28" y1="55" x2="68" y2="25" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3,2"/>
-          </svg>
-          <span class="rfd-chart-label">RFD Time-interval</span>
+        <div class="field-row">
+          <span class="field-label">Contracciones por lado</span>
+          <input id="rfd-reps-input" class="field-input" type="number" min="1" max="10" value="3">
+        </div>
+        <div class="field-row">
+          <span class="field-label">Umbral de detección (kg)</span>
+          <input id="rfd-threshold-input" class="field-input" type="number" min="0.5" max="20" step="0.5" value="2.0">
+        </div>
+        <div class="field-row">
+          <span class="field-label">Cuenta regresiva (s)</span>
+          <input id="rfd-countdown-input" class="field-input" type="number" min="0" max="10" value="3">
         </div>
       </div>
-      <p class="info-block-text">Rate of Force Development (RFD) es una medida de la fuerza explosiva: qué tan rápido el músculo desarrolla tensión. Se representa como la pendiente de la curva fuerza-tiempo.</p>
-    </div>
-
-    <button id="btn-start-rfd" class="btn btn-primary btn-full">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-      Iniciar test
-    </button>
-
-  </div>
-
-  <!-- ── Countdown ───────────────────────────────────────────────────────── -->
-  <div id="screen-countdown" class="screen" hidden>
-    <div class="card countdown-card">
-      <p style="font-size:.78rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem;">Preparando</p>
-      <p id="countdown-num" class="countdown-num">3</p>
-      <p style="font-size:.85rem;color:var(--text2);margin-top:.75rem;">Prepárate para la contracción explosiva</p>
-    </div>
-  </div>
-
-  <!-- ── Measure ─────────────────────────────────────────────────────────── -->
-  <div id="screen-measure" class="screen" hidden>
-
-    <div id="side-banner" class="side-banner" hidden></div>
-
-    <div class="card">
-      <div class="live-force-wrap">
-        <span id="live-force" class="live-force-value">0.0</span>
-        <span class="live-force-unit">kg</span>
+      <div class="card">
+        <p class="info-block-title">Información de RFD</p>
+        <div class="rfd-charts">
+          <div class="rfd-chart-item">
+            <svg class="rfd-chart-svg" width="100" height="70" viewBox="0 0 100 70">
+              <line x1="10" y1="60" x2="90" y2="60" stroke="#232d45" stroke-width="1"/>
+              <line x1="10" y1="10" x2="10" y2="60" stroke="#232d45" stroke-width="1"/>
+              <line x1="10" y1="26" x2="90" y2="26" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
+              <line x1="10" y1="46" x2="90" y2="46" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
+              <text x="7" y="29" text-anchor="end" font-size="8" fill="#5a6e8a">80%</text>
+              <text x="7" y="49" text-anchor="end" font-size="8" fill="#5a6e8a">20%</text>
+              <path d="M 15 58 Q 32 54 48 38 Q 62 20 82 14" stroke="#fcd34d" stroke-width="2" fill="none" stroke-linecap="round"/>
+              <line x1="29" y1="46" x2="63" y2="26" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3,2"/>
+            </svg>
+            <span class="rfd-chart-label">RFD 20-80%</span>
+          </div>
+          <div class="rfd-chart-item">
+            <svg class="rfd-chart-svg" width="100" height="70" viewBox="0 0 100 70">
+              <line x1="10" y1="60" x2="90" y2="60" stroke="#232d45" stroke-width="1"/>
+              <line x1="10" y1="10" x2="10" y2="60" stroke="#232d45" stroke-width="1"/>
+              <path d="M 15 58 Q 32 54 48 38 Q 62 20 82 14" stroke="#fcd34d" stroke-width="2" fill="none" stroke-linecap="round"/>
+              <line x1="28" y1="58" x2="28" y2="10" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
+              <line x1="68" y1="58" x2="68" y2="10" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
+              <line x1="28" y1="20" x2="68" y2="20" stroke="#e8edf5" stroke-width="1"/>
+              <text x="48" y="17" text-anchor="middle" font-size="8" fill="#8fa0bf">Time</text>
+              <text x="28" y="68" text-anchor="middle" font-size="7" fill="#5a6e8a">Onset</text>
+              <line x1="28" y1="55" x2="68" y2="25" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3,2"/>
+            </svg>
+            <span class="rfd-chart-label">RFD Time-interval</span>
+          </div>
+        </div>
+        <p class="info-block-text">Rate of Force Development (RFD) es una medida de la fuerza explosiva: qué tan rápido el músculo desarrolla tensión. Se representa como la pendiente de la curva fuerza-tiempo.</p>
       </div>
-      <canvas id="force-canvas" class="force-canvas"></canvas>
+      <button id="btn-start-rfd" class="btn btn-primary btn-full">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        Iniciar test
+      </button>
     </div>
 
-    <div class="card">
-      <div class="card-title-row">
-        <span class="card-title">Contracciones</span>
-        <span id="reps-counter" style="font-family:'DM Mono',monospace;font-size:.82rem;color:var(--text3);">0 / 3</span>
+    <!-- Countdown -->
+    <div id="rfd-section-countdown" hidden>
+      <div class="card countdown-card">
+        <p style="font-size:.78rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem;">Preparando</p>
+        <p id="rfd-countdown-num" class="countdown-num">3</p>
+        <p style="font-size:.85rem;color:var(--text2);margin-top:.75rem;">Prepárate para la contracción explosiva</p>
       </div>
-      <ul id="reps-list" class="reps-list">
-        <li style="font-size:.78rem;color:var(--text3);padding:.2rem 0 .4rem;">
-          Nº &nbsp;·&nbsp; Pico (kg) &nbsp;·&nbsp; RFD (kg/s) &nbsp;·&nbsp; T. al pico (ms)
-        </li>
-      </ul>
     </div>
 
-    <button id="btn-stop-test" class="btn btn-danger btn-full">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-      Finalizar lado
-    </button>
+    <!-- Measure -->
+    <div id="rfd-section-measure" hidden>
+      <div id="rfd-side-banner" class="side-banner" hidden></div>
+      <div class="card">
+        <div class="live-force-wrap">
+          <span id="rfd-live-force" class="live-force-value">0.0</span>
+          <span class="live-force-unit">kg</span>
+        </div>
+        <canvas id="rfd-canvas" class="force-canvas"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title-row">
+          <span class="card-title">Contracciones</span>
+          <span id="rfd-reps-counter" style="font-family:'DM Mono',monospace;font-size:.82rem;color:var(--text3);">0 / 3</span>
+        </div>
+        <ul id="rfd-reps-list" class="reps-list">
+          <li style="font-size:.78rem;color:var(--text3);padding:.2rem 0 .4rem;">Nº &nbsp;·&nbsp; Pico (kg) &nbsp;·&nbsp; RFD (kg/s) &nbsp;·&nbsp; T. al pico (ms)</li>
+        </ul>
+      </div>
+      <button id="btn-stop-rfd" class="btn btn-danger btn-full">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+        Finalizar lado
+      </button>
+    </div>
+
+    <!-- Results -->
+    <div id="rfd-section-results" hidden>
+      <div id="rfd-ai-section" class="card" hidden>
+        <p class="card-title">Índice de asimetría</p>
+        <div id="rfd-ai-badge" class="ai-badge">
+          <span id="rfd-ai-value" class="ai-value">—</span>
+          <span class="ai-formula">AI = (fuerte − débil) / fuerte × 100</span>
+        </div>
+      </div>
+      <div class="card">
+        <p class="card-title">Resultados del test</p>
+        <div id="rfd-results-content"></div>
+      </div>
+      <button id="btn-rfd-new-test" class="btn btn-secondary btn-full">Repetir test</button>
+      <button id="btn-rfd-menu" class="btn btn-primary btn-full">Volver al menú</button>
+    </div>
 
   </div>
 
@@ -508,27 +544,6 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
       Detener
     </button>
-
-  </div>
-
-  <!-- ── Results ─────────────────────────────────────────────────────────── -->
-  <div id="screen-results" class="screen" hidden>
-
-    <div id="ai-section" class="card" hidden>
-      <p class="card-title">Índice de asimetría</p>
-      <div id="ai-badge" class="ai-badge">
-        <span id="ai-value" class="ai-value">—</span>
-        <span class="ai-formula">AI = (fuerte − débil) / fuerte × 100</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <p class="card-title">Resultados del test</p>
-      <div id="results-content"></div>
-    </div>
-
-    <button id="btn-new-test" class="btn btn-secondary btn-full">Repetir test</button>
-    <button id="btn-results-menu" class="btn btn-primary btn-full">Volver al menú</button>
 
   </div>
 

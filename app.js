@@ -178,7 +178,7 @@ async function startMeasurement() {
   _measureStart = performance.now();
 
   _renderLiveReset();
-  _initCanvas('force-canvas');
+  _initCanvas(`${_currentTest}-canvas`);
   _startChartLoop();
 
   _doSoftTare();
@@ -200,7 +200,7 @@ function _onMeasureSample(kg) {
   const cutoff = t - CHART_WINDOW_MS;
   while (_chartPoints.length > 1 && _chartPoints[0].t < cutoff) _chartPoints.shift();
 
-  const el = document.getElementById('live-force');
+  const el = document.getElementById(`${_currentTest}-live-force`);
   if (el) el.textContent = kg.toFixed(1);
 
   if (_cState === 'idle') {
@@ -278,14 +278,15 @@ function _initCanvas(id) {
 
 function _startChartLoop() {
   cancelAnimationFrame(_rafId);
-  const tick = () => { _drawChart('force-canvas', _chartPoints, _measureStart); if (_measuring) _rafId = requestAnimationFrame(tick); };
+  const id = _currentTest;
+  const tick = () => { _drawChart(`${id}-canvas`, _chartPoints, _measureStart); if (_measuring) _rafId = requestAnimationFrame(tick); };
   _rafId = requestAnimationFrame(tick);
 }
 
 function _stopChartLoop() {
   cancelAnimationFrame(_rafId);
   _rafId = null;
-  _drawChart('force-canvas', _chartPoints, _measureStart);
+  _drawChart(`${_currentTest}-canvas`, _chartPoints, _measureStart);
 }
 
 function _startLiveChartLoop() {
@@ -375,7 +376,7 @@ function _drawChart(canvasId, points, measureStart) {
 }
 
 window.addEventListener('resize', () => {
-  if (_measuring) _initCanvas('force-canvas');
+  if (_measuring) _initCanvas(`${_currentTest}-canvas`);
   if (_liveMode)  _initCanvas('force-canvas-live');
 });
 
@@ -383,8 +384,8 @@ window.addEventListener('resize', () => {
 function _runCountdown(seconds) {
   return new Promise(resolve => {
     if (seconds <= 0) { resolve(); return; }
-    _showScreen('screen-countdown');
-    const el = document.getElementById('countdown-num');
+    _showTestSection('rfd', 'countdown');
+    const el = document.getElementById('rfd-countdown-num');
     let n = seconds;
     if (el) el.textContent = n;
     const iv = setInterval(() => {
@@ -522,18 +523,18 @@ function _bindUI() {
     });
   });
 
-  // Mode toggles — peak config
-  document.querySelectorAll('#screen-config-peak .mode-btn').forEach(btn => {
+  // Mode toggles — peak
+  document.querySelectorAll('#screen-peak .mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('#screen-config-peak .mode-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#screen-peak .mode-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       _laterality = btn.dataset.laterality;
     });
   });
-  // Mode toggles — rfd config
-  document.querySelectorAll('#screen-config-rfd .mode-btn').forEach(btn => {
+  // Mode toggles — rfd
+  document.querySelectorAll('#screen-rfd .mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('#screen-config-rfd .mode-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#screen-rfd .mode-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       _laterality = btn.dataset.laterality;
     });
@@ -571,17 +572,22 @@ function _bindUI() {
   });
 
   // Stop buttons
-  document.getElementById('btn-stop-test').addEventListener('click', _endCurrentSide);
+  document.getElementById('btn-stop-peak').addEventListener('click', _endCurrentSide);
+  document.getElementById('btn-stop-rfd').addEventListener('click', _endCurrentSide);
   document.getElementById('btn-stop-live').addEventListener('click', async () => {
     await _stopLive();
     _showScreen('screen-menu');
   });
 
   // Results buttons
-  document.getElementById('btn-new-test').addEventListener('click', () => {
-    _showScreen(_currentTest === 'rfd' ? 'screen-config-rfd' : 'screen-config-peak');
+  document.getElementById('btn-peak-new-test').addEventListener('click', () => {
+    _showTestSection('peak', 'config');
   });
-  document.getElementById('btn-results-menu').addEventListener('click', () => _showScreen('screen-menu'));
+  document.getElementById('btn-rfd-new-test').addEventListener('click', () => {
+    _showTestSection('rfd', 'config');
+  });
+  document.getElementById('btn-peak-menu').addEventListener('click', () => _showScreen('screen-menu'));
+  document.getElementById('btn-rfd-menu').addEventListener('click', () => _showScreen('screen-menu'));
 
   // Reset
   document.getElementById('btn-reset').addEventListener('click', _softReset);
@@ -598,16 +604,9 @@ function _bindUI() {
     _softReset();
   });
 
-  // Patient name — menu field (primary)
-  document.getElementById('menu-patient-name').addEventListener('input', e => {
-    _patient = e.target.value.trim();
-    document.getElementById('patient-name').value = e.target.value;
-    _persistPatient();
-  });
-  // Patient name — session dialog field (secondary, keeps in sync)
+  // Patient name — session dialog field
   document.getElementById('patient-name').addEventListener('input', e => {
     _patient = e.target.value.trim();
-    document.getElementById('menu-patient-name').value = e.target.value;
     _persistPatient();
   });
 
@@ -636,32 +635,28 @@ function _persistPatient() {
 }
 
 function _syncPatientInputs(value) {
-  const menuInput    = document.getElementById('menu-patient-name');
-  const dialogInput  = document.getElementById('patient-name');
-  if (menuInput)   menuInput.value   = value;
+  const dialogInput = document.getElementById('patient-name');
   if (dialogInput) dialogInput.value = value;
 }
 
 function _renderSessionState() {
-  const btn    = document.getElementById('btn-session');
-  const avatar = document.getElementById('patient-avatar');
-  const hasPatient = !!_patient;
-
-  if (btn) btn.classList.toggle('active', hasPatient);
-  if (avatar) avatar.classList.toggle('has-patient', hasPatient);
+  const btn = document.getElementById('btn-session');
+  if (btn) btn.classList.toggle('active', !!_patient);
 }
 
 // ── Test routing ──────────────────────────────────────────────────────────────
 function _openTest(test) {
   _currentTest = test;
   if (test === 'peak') {
-    const active = document.querySelector('#screen-config-peak .mode-btn.active');
+    const active = document.querySelector('#screen-peak .mode-btn.active');
     _laterality = active?.dataset.laterality ?? 'single';
-    _showScreen('screen-config-peak');
+    _showScreen('screen-peak');
+    _showTestSection('peak', 'config');
   } else if (test === 'rfd') {
-    const active = document.querySelector('#screen-config-rfd .mode-btn.active');
+    const active = document.querySelector('#screen-rfd .mode-btn.active');
     _laterality = active?.dataset.laterality ?? 'single';
-    _showScreen('screen-config-rfd');
+    _showScreen('screen-rfd');
+    _showTestSection('rfd', 'config');
   } else if (test === 'live') {
     _showScreen('screen-live');
     _startLive();
@@ -679,7 +674,7 @@ function _startTest() {
               : _laterality === 'right'       ? 'right'
               : null;
 
-  _showScreen('screen-measure');
+  _showTestSection(_currentTest, 'measure');
   _renderSideBanner(_activeSide);
   _updateRepsCounter();
   startMeasurement();
@@ -702,13 +697,20 @@ async function _endCurrentSide() {
 
   const payload = _buildResults();
   _saveResults(payload);
-  _showScreen('screen-results');
+  _showTestSection(_currentTest, 'results');
   _renderFinalResults(payload);
 }
 
 // ── Screen manager ────────────────────────────────────────────────────────────
 function _showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== id; });
+}
+
+function _showTestSection(test, section) {
+  ['config', 'countdown', 'measure', 'results'].forEach(s => {
+    const el = document.getElementById(`${test}-section-${s}`);
+    if (el) el.hidden = s !== section;
+  });
 }
 
 // ── Render helpers ────────────────────────────────────────────────────────────
@@ -753,13 +755,13 @@ function _renderBattery(pct) {
 }
 
 function _renderLiveReset() {
-  const el = document.getElementById('live-force');
+  const el = document.getElementById(`${_currentTest}-live-force`);
   if (el) el.textContent = '0.0';
-  document.getElementById('reps-list')?.replaceChildren();
+  document.getElementById(`${_currentTest}-reps-list`)?.replaceChildren();
 }
 
 function _renderRepRow(n, rep) {
-  const list = document.getElementById('reps-list');
+  const list = document.getElementById(`${_currentTest}-reps-list`);
   if (!list) return;
   const li = document.createElement('li');
   li.className = 'rep-item';
@@ -772,12 +774,12 @@ function _renderRepRow(n, rep) {
 }
 
 function _updateRepsCounter() {
-  const el = document.getElementById('reps-counter');
+  const el = document.getElementById(`${_currentTest}-reps-counter`);
   if (el) el.textContent = `${_contractions.length} / ${_repsTarget}`;
 }
 
 function _renderSideBanner(side) {
-  const el = document.getElementById('side-banner');
+  const el = document.getElementById(`${_currentTest}-side-banner`);
   if (!el) return;
   const labels = { left: 'Lado izquierdo →', right: 'Lado derecho →' };
   el.textContent = labels[side] || '';
@@ -785,7 +787,7 @@ function _renderSideBanner(side) {
 }
 
 function _renderFinalResults(payload) {
-  const content = document.getElementById('results-content');
+  const content = document.getElementById(`${_currentTest}-results-content`);
   if (!content) return;
   content.innerHTML = '';
 
@@ -795,15 +797,15 @@ function _renderFinalResults(payload) {
     _renderRepsTable(payload.reps ?? [], content);
   }
 
-  const aiSection = document.getElementById('ai-section');
+  const aiSection = document.getElementById(`${_currentTest}-ai-section`);
   if (payload.asymmetryIndex !== null && payload.asymmetryIndex !== undefined) {
     const ai    = payload.asymmetryIndex;
     const level = ai < 10 ? 'green' : ai < 20 ? 'yellow' : 'red';
-    document.getElementById('ai-value').textContent = ai.toFixed(1) + ' %';
-    document.getElementById('ai-badge').dataset.level = level;
+    document.getElementById(`${_currentTest}-ai-value`).textContent = ai.toFixed(1) + ' %';
+    document.getElementById(`${_currentTest}-ai-badge`).dataset.level = level;
     aiSection.hidden = false;
   } else {
-    aiSection.hidden = true;
+    if (aiSection) aiSection.hidden = true;
   }
 }
 
