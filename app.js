@@ -46,6 +46,13 @@ let _liveChartPoints  = [];
 let _liveMeasureStart = 0;
 let _liveRafId        = null;
 
+// ── Live mode state ───────────────────────────────────────────────────────────
+let _liveTimerSec        = 0;
+let _liveTimerIntervalId = null;
+let _liveMaxKg           = 0;
+let _liveSumKg           = 0;
+let _liveSampleCount     = 0;
+
 // ── Contraction state machine ─────────────────────────────────────────────────
 let _cState   = 'idle';
 let _cBuffer  = [];
@@ -141,6 +148,7 @@ function _onDisconnect() {
   _peakDisplayKg = 0;
   _leftPeakKg    = 0;
   _rightPeakKg   = 0;
+  clearInterval(_liveTimerIntervalId);
   _stopChartLoop();
   _stopLiveChartLoop();
   _setBLEStatus('disconnected');
@@ -239,18 +247,74 @@ function _onMeasureSample(kg) {
 async function _startLive() {
   _liveChartPoints  = [];
   _liveMeasureStart = performance.now();
+  _liveTimerSec     = 0;
+  _liveMaxKg        = 0;
+  _liveSumKg        = 0;
+  _liveSampleCount  = 0;
   _liveMode         = true;
   document.querySelector('.app-header').classList.add('measuring');
-  _initCanvas('force-canvas-live');
-  _startLiveChartLoop();
+  _renderLiveDisplay();
+  _startLiveTimer();
   _doSoftTare();
+  requestAnimationFrame(() => {
+    _initCanvas('force-canvas-live');
+    _startLiveChartLoop();
+  });
 }
 
 async function _stopLive() {
   if (!_liveMode) return;
   _liveMode = false;
   document.querySelector('.app-header').classList.remove('measuring');
+  clearInterval(_liveTimerIntervalId);
   _stopLiveChartLoop();
+}
+
+function _resetLive() {
+  _liveChartPoints  = [];
+  _liveMeasureStart = performance.now();
+  _liveTimerSec     = 0;
+  _liveMaxKg        = 0;
+  _liveSumKg        = 0;
+  _liveSampleCount  = 0;
+  clearInterval(_liveTimerIntervalId);
+  _startLiveTimer();
+  _initCanvas('force-canvas-live');
+  _startLiveChartLoop();
+  _renderLiveDisplay();
+  _doSoftTare();
+}
+
+function _startLiveTimer() {
+  clearInterval(_liveTimerIntervalId);
+  _liveTimerIntervalId = setInterval(() => {
+    _liveTimerSec++;
+    const el = document.getElementById('live-timer');
+    if (el) el.textContent = _liveTimerSec;
+  }, 1000);
+}
+
+function _renderLiveDisplay() {
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set('live-actual', '0.0');
+  set('live-timer',  '0');
+  set('live-max',    '0.0');
+  set('live-media',  '0.0');
+}
+
+function _buildLiveResults() {
+  const avg = _liveSampleCount > 0 ? _liveSumKg / _liveSampleCount : 0;
+  const sameType = _savedResults.filter(r => r.testType === 'live').length;
+  const label    = sameType > 0 ? `Datos en Vivo · ${sameType + 1}` : 'Datos en Vivo';
+  return {
+    label,
+    testType:  'live',
+    laterality: null,
+    peak:       _liveMaxKg  > 0 ? _liveMaxKg  : null,
+    avg:        avg          > 0 ? avg          : null,
+    duration:   _liveTimerSec,
+    timestamp:  new Date().toISOString(),
+  };
 }
 
 function _onLiveSample(kg) {
@@ -258,8 +322,16 @@ function _onLiveSample(kg) {
   _liveChartPoints.push({ kg, t });
   const cutoff = t - CHART_WINDOW_MS;
   while (_liveChartPoints.length > 1 && _liveChartPoints[0].t < cutoff) _liveChartPoints.shift();
-  const el = document.getElementById('live-force-live');
-  if (el) el.textContent = kg.toFixed(1);
+
+  if (kg > _liveMaxKg) _liveMaxKg = kg;
+  _liveSumKg += kg;
+  _liveSampleCount++;
+  const avg = _liveSumKg / _liveSampleCount;
+
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set('live-actual', kg.toFixed(1));
+  set('live-max',    _liveMaxKg.toFixed(1));
+  set('live-media',  avg.toFixed(1));
 }
 
 // ── Contraction detection ─────────────────────────────────────────────────────
@@ -312,19 +384,22 @@ function _stopChartLoop() {
   _drawChart(`${_currentTest}-canvas`, _chartPoints, _measureStart);
 }
 
+const _LIVE_CHART_OPTS = { absoluteLabels: true, labelStep: 1, lineColor: 'var(--accent)', showThreshold: false };
+
 function _startLiveChartLoop() {
   cancelAnimationFrame(_liveRafId);
-  const tick = () => { _drawChart('force-canvas-live', _liveChartPoints, _liveMeasureStart); if (_liveMode) _liveRafId = requestAnimationFrame(tick); };
+  const tick = () => { _drawChart('force-canvas-live', _liveChartPoints, _liveMeasureStart, _LIVE_CHART_OPTS); if (_liveMode) _liveRafId = requestAnimationFrame(tick); };
   _liveRafId = requestAnimationFrame(tick);
 }
 
 function _stopLiveChartLoop() {
   cancelAnimationFrame(_liveRafId);
   _liveRafId = null;
-  _drawChart('force-canvas-live', _liveChartPoints, _liveMeasureStart);
+  _drawChart('force-canvas-live', _liveChartPoints, _liveMeasureStart, _LIVE_CHART_OPTS);
 }
 
-function _drawChart(canvasId, points, measureStart) {
+function _drawChart(canvasId, points, measureStart, opts = {}) {
+  const { absoluteLabels = false, labelStep = 2, lineColor = '#e8edf5', showThreshold = true } = opts;
   const canvas = document.getElementById(canvasId);
   if (!canvas || !canvas.width) return;
   const ctx = canvas.getContext('2d');
@@ -341,7 +416,7 @@ function _drawChart(canvasId, points, measureStart) {
 
   const now    = performance.now() - measureStart;
   const tStart = now - CHART_WINDOW_MS;
-  const maxKg  = Math.max(_thresholdKg * 2.5, ...points.map(s => s.kg), 20) * 1.1;
+  const maxKg  = Math.max(showThreshold ? _thresholdKg * 2.5 : 5, ...points.map(s => s.kg), 20) * 1.1;
 
   const xOf = t  => ml + ((t  - tStart) / CHART_WINDOW_MS) * cw;
   const yOf = kg => mt + ch * (1 - kg / maxKg);
@@ -358,11 +433,13 @@ function _drawChart(canvasId, points, measureStart) {
     ctx.fillText(kg, ml - 4 * dpr, y + 3 * dpr);
   }
 
-  ctx.strokeStyle = 'rgba(251,146,60,0.5)';
-  ctx.lineWidth   = 1.5 * dpr;
-  ctx.setLineDash([5 * dpr, 4 * dpr]);
-  ctx.beginPath(); ctx.moveTo(ml, yOf(_thresholdKg)); ctx.lineTo(ml + cw, yOf(_thresholdKg)); ctx.stroke();
-  ctx.setLineDash([]);
+  if (showThreshold) {
+    ctx.strokeStyle = 'rgba(251,146,60,0.5)';
+    ctx.lineWidth   = 1.5 * dpr;
+    ctx.setLineDash([5 * dpr, 4 * dpr]);
+    ctx.beginPath(); ctx.moveTo(ml, yOf(_thresholdKg)); ctx.lineTo(ml + cw, yOf(_thresholdKg)); ctx.stroke();
+    ctx.setLineDash([]);
+  }
 
   const visible = points.filter(s => s.t >= tStart);
   if (_measuring && _cState !== 'idle' && _cBuffer.length > 0) {
@@ -379,7 +456,7 @@ function _drawChart(canvasId, points, measureStart) {
   }
 
   if (visible.length < 2) return;
-  ctx.strokeStyle = '#e8edf5';
+  ctx.strokeStyle = lineColor;
   ctx.lineWidth   = 1.5 * dpr;
   ctx.lineJoin    = 'round';
   ctx.beginPath();
@@ -391,10 +468,13 @@ function _drawChart(canvasId, points, measureStart) {
 
   ctx.fillStyle = 'rgba(90,110,138,0.7)';
   ctx.textAlign = 'center';
-  for (let sec = 0; sec <= CHART_WINDOW_MS / 1000; sec += 2) {
+  for (let sec = 0; sec <= CHART_WINDOW_MS / 1000; sec += labelStep) {
     const t = tStart + sec * 1000;
     if (t < 0) continue;
-    ctx.fillText(`${sec}s`, xOf(t), mt + ch + 18 * dpr);
+    const label = absoluteLabels
+      ? ((tStart / 1000 + sec).toFixed(1))
+      : `${sec}s`;
+    ctx.fillText(label, xOf(t), mt + ch + 18 * dpr);
   }
 }
 
@@ -503,6 +583,7 @@ function _softReset() {
   if (_liveMode)  _stopLive();
   _contractions = []; _leftContractions = []; _rightContractions = [];
   _chartPoints  = []; _liveChartPoints  = [];
+  _liveTimerSec    = 0; _liveMaxKg = 0; _liveSumKg = 0; _liveSampleCount = 0;
   _lastRawKg     = 0;
   _tareOffset    = 0;
   _peakDisplayKg = 0;
@@ -669,10 +750,15 @@ function _bindUI() {
     btn.addEventListener('click', () => _switchPeakSide(btn.dataset.side));
   });
   document.getElementById('btn-stop-rfd').addEventListener('click', _endCurrentSide);
-  document.getElementById('btn-stop-live').addEventListener('click', async () => {
+  document.getElementById('btn-live-borrar').addEventListener('click', async () => {
+    if (_liveTimerSec >= 2) {
+      const payload = _buildLiveResults();
+      _saveResults(payload);
+    }
     await _stopLive();
     if (_inSubScreen) history.back(); else _showScreen('screen-menu');
   });
+  document.getElementById('btn-live-restaurar').addEventListener('click', _resetLive);
 
   // Results buttons
   document.getElementById('btn-peak-new-test').addEventListener('click', () => {
@@ -1162,12 +1248,14 @@ function _renderGlobalExport() {
 
   const peakCount = _savedResults.filter(r => r.testType === 'peak').length;
   const rfdCount  = _savedResults.filter(r => r.testType === 'rfd').length;
+  const liveCount = _savedResults.filter(r => r.testType === 'live').length;
 
-  if (!peakCount && !rfdCount) { card.style.display = 'none'; return; }
+  if (!peakCount && !rfdCount && !liveCount) { card.style.display = 'none'; return; }
 
   const items = [
-    peakCount && { id: 'peak', label: 'Fuerza Pico', count: peakCount },
-    rfdCount  && { id: 'rfd',  label: 'RFD',         count: rfdCount  },
+    peakCount && { id: 'peak', label: 'Fuerza Pico',    count: peakCount },
+    rfdCount  && { id: 'rfd',  label: 'RFD',             count: rfdCount  },
+    liveCount && { id: 'live', label: 'Datos en Vivo',   count: liveCount },
   ].filter(Boolean);
 
   chips.innerHTML = items.map(({ id, label, count }) =>
@@ -1183,6 +1271,7 @@ function _copyForceToClipboard() {
 
   const peakResults = _savedResults.filter(r => r.testType === 'peak');
   const rfdResults  = _savedResults.filter(r => r.testType === 'rfd');
+  const liveResults = _savedResults.filter(r => r.testType === 'live');
   const sections    = [];
 
   if (peakResults.length) {
@@ -1217,6 +1306,17 @@ function _copyForceToClipboard() {
     sections.push(`RFD:\n${lines.join('\n')}`);
   }
 
+  if (liveResults.length) {
+    const lines = liveResults.map(r => {
+      const parts = [];
+      if (r.peak     != null) parts.push(`Máx ${r.peak.toFixed(1)} kg`);
+      if (r.avg      != null) parts.push(`Media ${r.avg.toFixed(1)} kg`);
+      if (r.duration != null) parts.push(`${r.duration}s`);
+      return `  ${r.label}: ${parts.join(' | ')}`;
+    });
+    sections.push(`Datos en Vivo:\n${lines.join('\n')}`);
+  }
+
   const text = `MEDICIÓN PhysiQ-Force${patient}\nFecha: ${date}\n\n${sections.join('\n\n')}`;
   navigator.clipboard.writeText(text).then(() => _showCopyFeedback());
 }
@@ -1237,7 +1337,7 @@ function _renderMeasurementsList(type = null) {
   const titleEl = document.getElementById('measurements-title');
   if (!list) return;
 
-  const titles = { peak: 'Fuerza Pico', rfd: 'RFD' };
+  const titles = { peak: 'Fuerza Pico', rfd: 'RFD', live: 'Datos en Vivo' };
   if (titleEl) titleEl.textContent = type ? (titles[type] ?? 'Mediciones') : 'Mediciones';
 
   const results = type ? _savedResults.filter(r => r.testType === type) : _savedResults;
@@ -1259,7 +1359,13 @@ function _renderMeasurementsList(type = null) {
     const timeStr = ts ? ts.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '';
 
     let valStr = '';
-    if (m.laterality === 'comparison') {
+    if (m.testType === 'live') {
+      const parts = [];
+      if (m.peak     != null) parts.push(`Máx: ${m.peak.toFixed(1)} kg`);
+      if (m.avg      != null) parts.push(`Media: ${m.avg.toFixed(1)} kg`);
+      if (m.duration != null) parts.push(`${m.duration}s`);
+      valStr = parts.join(' · ') || '—';
+    } else if (m.laterality === 'comparison') {
       const l = m.sides?.left?.peak;
       const r = m.sides?.right?.peak;
       const parts = [];

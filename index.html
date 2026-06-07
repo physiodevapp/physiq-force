@@ -165,6 +165,16 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .live-force-value{font-family:'DM Mono',monospace;font-size:3.5rem;font-weight:300;color:var(--text);line-height:1;}
 .live-force-unit{font-size:.9rem;color:var(--text3);margin-bottom:.2rem;}
 
+/* ── Live metrics grid ───────────────────────────────────────────────── */
+.live-metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:.875rem;}
+.live-metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.875rem 1rem;display:flex;flex-direction:column;gap:.15rem;}
+.live-metric-label{font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
+.live-metric-readout{display:flex;align-items:baseline;gap:.25rem;}
+.live-metric-value{font-family:'DM Mono',monospace;font-size:2.75rem;font-weight:300;color:var(--accent);line-height:1;}
+.live-metric-unit{font-size:.78rem;color:var(--text3);}
+.live-chart-card{flex:1;display:flex;flex-direction:column;min-height:160px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.875rem;}
+#force-canvas-live{flex:1;display:block;width:100%;min-height:140px;border-radius:6px;background:var(--surface2);}
+
 /* ── Canvas ──────────────────────────────────────────────────────────── */
 .force-canvas{display:block;width:100%;height:160px;border-radius:8px;background:var(--surface2);}
 
@@ -650,18 +660,44 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
       <span class="config-title">Datos en Vivo</span>
     </div>
 
-    <div class="card">
-      <div class="live-force-wrap">
-        <span id="live-force-live" class="live-force-value">0.0</span>
-        <span class="live-force-unit">kg</span>
+    <div class="live-metrics-grid">
+      <div class="live-metric">
+        <span class="live-metric-label">Actual</span>
+        <div class="live-metric-readout">
+          <span id="live-actual" class="live-metric-value">0.0</span>
+          <span class="live-metric-unit">kg</span>
+        </div>
       </div>
-      <canvas id="force-canvas-live" class="force-canvas"></canvas>
+      <div class="live-metric">
+        <span class="live-metric-label">Tiempo</span>
+        <div class="live-metric-readout">
+          <span id="live-timer" class="live-metric-value">0</span>
+        </div>
+      </div>
+      <div class="live-metric">
+        <span class="live-metric-label">Máx</span>
+        <div class="live-metric-readout">
+          <span id="live-max" class="live-metric-value">0.0</span>
+          <span class="live-metric-unit">kg</span>
+        </div>
+      </div>
+      <div class="live-metric">
+        <span class="live-metric-label">Media</span>
+        <div class="live-metric-readout">
+          <span id="live-media" class="live-metric-value">0.0</span>
+          <span class="live-metric-unit">kg</span>
+        </div>
+      </div>
     </div>
 
-    <button id="btn-stop-live" class="btn btn-danger btn-full">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-      Detener
-    </button>
+    <div class="live-chart-card">
+      <canvas id="force-canvas-live"></canvas>
+    </div>
+
+    <div class="measure-actions">
+      <button id="btn-live-borrar" class="btn btn-danger btn-full">Borrar</button>
+      <button id="btn-live-restaurar" class="btn btn-secondary btn-full">Restaurar</button>
+    </div>
 
   </div>
 
