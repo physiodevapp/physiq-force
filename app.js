@@ -416,8 +416,8 @@ function _runCountdown(seconds) {
 
 // ── Comparison & asymmetry ────────────────────────────────────────────────────
 function _calcAI(left, right) {
-  const strong = Math.max(left, right);
-  return strong === 0 ? 0 : ((strong - Math.min(left, right)) / strong) * 100;
+  const avg = (left + right) / 2;
+  return avg === 0 ? 0 : (Math.abs(left - right) / avg) * 100;
 }
 
 // ── Results builder ───────────────────────────────────────────────────────────
@@ -443,7 +443,7 @@ function _buildResults() {
       const lsi   = (lPeak !== null && rPeak !== null)
         ? (Math.min(lPeak, rPeak) / Math.max(lPeak, rPeak)) * 100
         : null;
-      return { label: _genLabel(), testType: 'peak', laterality: 'comparison', sides: { left: { peak: lPeak }, right: { peak: rPeak } }, lsi, timestamp: new Date().toISOString() };
+      return { label: _genLabel(), testType: 'peak', laterality: 'comparison', sides: { left: { peak: lPeak }, right: { peak: rPeak } }, lsi, asymmetryIndex: lsi !== null ? _calcAI(lPeak, rPeak) : null, timestamp: new Date().toISOString() };
     }
     return { label: _genLabel(), testType: 'peak', laterality: _laterality, side: _activeSide, peak: _peakDisplayKg > 0 ? _peakDisplayKg : null, timestamp: new Date().toISOString() };
   }
@@ -1186,7 +1186,7 @@ function _copyForceToClipboard() {
         const l = r.sides.left?.rfd?.toFixed(0)  ?? '—';
         const d = r.sides.right?.rfd?.toFixed(0) ?? '—';
         let line = `  ${r.label}: Izq ${l} N/s | Der ${d} N/s`;
-        if (r.lsi != null) line += ` | LSI ${r.lsi.toFixed(1)} %`;
+        if (r.asymmetryIndex != null) line += ` | AI ${r.asymmetryIndex.toFixed(1)} %`;
         return line;
       }
       let line = `  ${r.label}: ${r.rfd?.toFixed(0) ?? '—'} N/s`;
@@ -1251,7 +1251,8 @@ function _renderMeasurementsList(type = null) {
       valStr = peak != null ? `${sideLabel}${peak.toFixed(1)} kg` : '—';
     }
 
-    const ai      = m.asymmetryIndex ?? (m.lsi != null ? 100 - m.lsi : null);
+    const _l = m.sides?.left?.peak, _r = m.sides?.right?.peak;
+    const ai = m.asymmetryIndex ?? (_l != null && _r != null ? (() => { const avg = (_l + _r) / 2; return avg ? Math.abs(_l - _r) / avg * 100 : null; })() : null);
     const aiLevel = ai != null ? (ai < 10 ? 'green' : ai < 20 ? 'yellow' : 'red') : null;
 
     card.innerHTML =
