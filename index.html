@@ -182,6 +182,9 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .peak-bar-col{flex:1;display:flex;flex-direction:column;gap:.35rem;}
 .peak-bar-col-label{font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:center;}
 .peak-bars-wrap .force-bar-wrap{min-height:0;flex:1;}
+.peak-col-readout{display:flex;align-items:baseline;justify-content:center;gap:.25rem;}
+.peak-col-value{font-family:'DM Mono',monospace;font-size:1.75rem;font-weight:300;color:var(--text);line-height:1;}
+.peak-col-unit{font-size:.75rem;color:var(--text3);}
 .force-meter-footer{display:flex;justify-content:flex-end;}
 .force-reps-count{font-family:'DM Mono',monospace;font-size:.82rem;color:var(--text3);}
 .measure-actions{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
@@ -441,6 +444,10 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
         <div id="peak-bars-comparison" class="peak-bars-wrap" hidden>
           <div class="peak-bar-col">
             <p class="peak-bar-col-label">izquierda</p>
+            <div class="peak-col-readout">
+              <span id="peak-left-col-value" class="peak-col-value">—</span>
+              <span class="peak-col-unit">Kg</span>
+            </div>
             <div class="force-bar-wrap">
               <div id="peak-left-fill" class="force-bar-fill"></div>
               <div id="peak-left-line" class="force-peak-line" hidden>
@@ -451,6 +458,10 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
           </div>
           <div class="peak-bar-col">
             <p class="peak-bar-col-label">derecha</p>
+            <div class="peak-col-readout">
+              <span id="peak-right-col-value" class="peak-col-value">—</span>
+              <span class="peak-col-unit">Kg</span>
+            </div>
             <div class="force-bar-wrap">
               <div id="peak-right-fill" class="force-bar-fill"></div>
               <div id="peak-right-line" class="force-peak-line" hidden>

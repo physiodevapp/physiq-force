@@ -869,6 +869,11 @@ function _drawForceBar(kg) {
     if (iFill)  iFill.style.height = '0%';
     if (iLine)  { iLine.hidden = iPeak === 0; iLine.style.bottom = iPeakPct + '%'; }
     if (iLabel) iLabel.textContent = iPeak.toFixed(1) + ' Kg';
+
+    const aVal = document.getElementById(`peak-${aId}-col-value`);
+    const iVal = document.getElementById(`peak-${iId}-col-value`);
+    if (aVal) aVal.textContent = aPeak === 0 ? '—' : aPeak.toFixed(1);
+    if (iVal) iVal.textContent = iPeak === 0 ? '—' : iPeak.toFixed(1);
     return;
   }
 
@@ -967,8 +972,10 @@ function _renderLiveReset() {
     ['left', 'right'].forEach(s => {
       const f = document.getElementById(`peak-${s}-fill`);
       const l = document.getElementById(`peak-${s}-line`);
+      const v = document.getElementById(`peak-${s}-col-value`);
       if (f) f.style.height = '0%';
       if (l) l.hidden = true;
+      if (v) v.textContent = '—';
     });
   }
 }
