@@ -62,6 +62,7 @@ let _repsTarget   = 3;
 let _laterality   = 'single';
 let _activeSide   = null;
 let _currentTest  = 'peak';
+const TEST_LABELS = { peak: 'peak force', rfd: 'RFD' };
 let _rfdCountdown = 3;
 
 // ── Session ───────────────────────────────────────────────────────────────────
@@ -919,6 +920,10 @@ function _showTestSection(test, section) {
     const el = document.getElementById(`${test}-section-${s}`);
     if (el) el.hidden = s !== section;
   });
+  if (section === 'results') {
+    const btn = document.getElementById(`btn-${test}-new-test`);
+    if (btn) btn.textContent = `Nuevo ${TEST_LABELS[test] ?? test}`;
+  }
 }
 
 // ── Render helpers ────────────────────────────────────────────────────────────
