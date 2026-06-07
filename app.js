@@ -797,9 +797,11 @@ function _startTest() {
     const toggle    = document.getElementById('peak-measure-toggle');
     const barSingle = document.getElementById('peak-bar-single');
     const barsComp  = document.getElementById('peak-bars-comparison');
+    const readout   = document.querySelector('#peak-section-measure .force-meter-readout');
     if (toggle)    toggle.hidden    = !isComp;
     if (barSingle) barSingle.hidden = isComp;
     if (barsComp)  barsComp.hidden  = !isComp;
+    if (readout)   readout.hidden   = isComp;
     if (isComp) {
       document.querySelectorAll('.peak-side-btn').forEach(b =>
         b.classList.toggle('active', b.dataset.side === 'left')
