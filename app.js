@@ -468,13 +468,20 @@ function _drawChart(canvasId, points, measureStart, opts = {}) {
 
   ctx.fillStyle = 'rgba(90,110,138,0.7)';
   ctx.textAlign = 'center';
-  for (let sec = 0; sec <= CHART_WINDOW_MS / 1000; sec += labelStep) {
-    const t = tStart + sec * 1000;
-    if (t < 0) continue;
-    const label = absoluteLabels
-      ? ((tStart / 1000 + sec).toFixed(1))
-      : `${sec}s`;
-    ctx.fillText(label, xOf(t), mt + ch + 18 * dpr);
+  if (absoluteLabels) {
+    const s0 = Math.ceil(tStart / 1000);
+    const s1 = Math.floor((tStart + CHART_WINDOW_MS) / 1000);
+    for (let s = s0; s <= s1; s++) {
+      const t = s * 1000;
+      if (t < 0) continue;
+      ctx.fillText(`${s}`, xOf(t), mt + ch + 18 * dpr);
+    }
+  } else {
+    for (let sec = 0; sec <= CHART_WINDOW_MS / 1000; sec += labelStep) {
+      const t = tStart + sec * 1000;
+      if (t < 0) continue;
+      ctx.fillText(`${sec}s`, xOf(t), mt + ch + 18 * dpr);
+    }
   }
 }
 
