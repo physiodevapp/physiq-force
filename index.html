@@ -46,7 +46,7 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .btn-global:hover{color:var(--text2);}
 .translate-tooltip{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;white-space:nowrap;font-size:.75rem;color:var(--text2);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.6;opacity:0;pointer-events:none;transition:opacity .2s;z-index:200;}
 .btn-global:hover .translate-tooltip{opacity:1;}
-.translate-banner{position:fixed;top:64px;left:0;right:0;z-index:210;background:var(--surface2);border-bottom:1px solid var(--border);padding:9px 1rem;display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--text2);opacity:0;pointer-events:none;transform:translateY(-100%);transition:opacity .25s ease,transform .25s ease;}
+.translate-banner{position:fixed;top:64px;left:0;right:0;z-index:50;background:var(--surface2);border-bottom:1px solid var(--border);padding:9px 1rem;display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--text2);opacity:0;pointer-events:none;transform:translateY(-100%);transition:opacity .25s ease,transform .25s ease;}
 .translate-banner.visible{opacity:1;pointer-events:auto;transform:translateY(0);}
 .translate-banner-close{margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:1.1rem;padding:0 4px;line-height:1;}
 
@@ -292,6 +292,50 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 .ble-force-row{display:flex;align-items:baseline;justify-content:center;gap:.35rem;padding:.6rem 0 1rem;}
 .ble-force-val{font-family:'DM Mono',monospace;font-size:2.75rem;font-weight:300;color:var(--text);}
 .ble-force-unit{font-size:.88rem;color:var(--text3);}
+@keyframes ble-spin{to{transform:rotate(360deg);}}
+.ble-spinner{width:44px;height:44px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:ble-spin .75s linear infinite;margin:0 auto;}
+.ble-connecting-wrap{display:flex;flex-direction:column;align-items:center;gap:.9rem;padding:1.5rem 0 1rem;}
+.ble-connecting-label{font-size:.9rem;color:var(--text2);}
+/* ── MVC bottom sheet ────────────────────────────────────────────── */
+.mvc-backdrop{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .25s;}
+.mvc-backdrop.open{opacity:1;pointer-events:auto;}
+.mvc-sheet{position:fixed;left:0;right:0;bottom:0;z-index:401;background:var(--surface);border-radius:20px 20px 0 0;border-top:1px solid var(--border2);height:65vh;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,1,.23,1);}
+.mvc-sheet.open{transform:translateY(0);}
+.mvc-sheet-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:.75rem auto .5rem;flex-shrink:0;}
+.mvc-sheet-header{padding:0 1rem .5rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.mvc-sheet-title{font-size:.95rem;font-weight:600;}
+.mvc-sheet-search{margin:0 1rem .5rem;position:relative;flex-shrink:0;}
+.mvc-search-icon{position:absolute;left:.65rem;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;}
+.mvc-search-input{width:100%;padding:.5rem .75rem .5rem 2.25rem;border-radius:10px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:.88rem;font-family:'Outfit',sans-serif;outline:none;transition:border-color .2s;box-sizing:border-box;}
+.mvc-search-input:focus{border-color:var(--accent);}
+.mvc-search-input::placeholder{color:var(--text3);}
+.mvc-sheet-sort{display:flex;gap:.4rem;padding:0 1rem .65rem;overflow-x:auto;flex-shrink:0;}
+.mvc-sheet-sort::-webkit-scrollbar{display:none;}
+.mvc-sort-btn{flex-shrink:0;display:flex;align-items:center;gap:4px;padding:.3rem .75rem;border-radius:20px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:.78rem;font-family:'Outfit',sans-serif;cursor:pointer;transition:all .15s;}
+.mvc-sort-btn.active{background:var(--accent);border-color:var(--accent);color:#0a0d12;}
+.mvc-sort-arrow{transition:transform .2s ease;flex-shrink:0;}
+.mvc-sheet-list{overflow-y:auto;flex:1;padding:0 .75rem .75rem;}
+.mvc-item{padding:.65rem .75rem;border-radius:10px;cursor:pointer;transition:background .12s;border:1px solid transparent;}
+.mvc-item+.mvc-item{margin-top:.25rem;}
+.mvc-item:active{background:var(--surface2);}
+.mvc-item.selected{background:rgba(251,146,60,.08);border-color:rgba(251,146,60,.3);}
+.mvc-item-label{font-size:.88rem;font-weight:500;color:var(--text);display:block;}
+.mvc-item-meta{font-size:.75rem;color:var(--text3);font-family:'DM Mono',monospace;margin-top:.15rem;display:block;}
+.mvc-empty{text-align:center;color:var(--text3);font-size:.85rem;padding:2rem 1rem;}
+/* ── Live zone toggle ─────────────────────────────────────────────── */
+.live-zone-toggle-btn{width:100%;background:none;border:none;padding:.875rem 1rem;display:flex;align-items:center;gap:.65rem;cursor:pointer;font-family:'Outfit',sans-serif;color:var(--text);transition:background .15s;box-sizing:border-box;border-radius:inherit;}
+.live-zone-toggle-btn:has(.live-zone-check:not(:checked)){background:var(--surface2);}
+.live-zone-toggle-btn:hover{background:rgba(255,255,255,.05);}
+.live-zone-check{-webkit-appearance:none;appearance:none;width:16px;height:16px;background:var(--surface3);border:1.5px solid var(--border2);border-radius:4px;cursor:pointer;flex-shrink:0;transition:background .15s,border-color .15s;}
+.live-zone-check:checked{background:var(--accent);border-color:var(--accent);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8l4 4 6-7' stroke='%230a0d12' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:center;}
+/* ── Dual range slider ────────────────────────────────────────────── */
+.dual-range{padding:14px 10px 4px;user-select:none;touch-action:none;}
+.dual-range-track{position:relative;height:4px;background:var(--border2);border-radius:2px;overflow:visible;}
+.dual-range-fill{position:absolute;top:0;height:100%;background:var(--accent);border-radius:2px;pointer-events:none;}
+.dual-range-thumb{position:absolute;width:20px;height:20px;border-radius:50%;background:var(--accent);border:2.5px solid var(--bg);cursor:grab;top:50%;transform:translate(-50%,-50%);z-index:2;}
+.dual-range-thumb::before{content:attr(data-pct);position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:.7rem;font-family:'DM Mono',monospace;color:var(--accent);white-space:nowrap;pointer-events:none;}
+.dual-range-thumb:focus{outline:none;box-shadow:0 0 0 4px rgba(251,146,60,.25);}
+.dual-range-thumb.dragging{cursor:grabbing;box-shadow:0 0 0 6px rgba(251,146,60,.2);}
 .summary-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
 .summary-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
 .summary-title{font-family:'DM Serif Display',serif;font-size:16px;color:var(--accent);}
@@ -426,8 +470,9 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
           <button class="mode-btn" data-laterality="comparison">Izquierda / Derecha</button>
         </div>
         <p class="info-desc">Mide la contracción voluntaria máxima (MVC). En modo <strong>Izquierda / Derecha</strong> se calcula el índice de simetría bilateral (LSI).</p>
+        <input id="peak-label-input" class="text-input" type="text" placeholder="Movimiento (ej. Flexión rodilla)" autocomplete="off" style="margin-top:.75rem;">
       </div>
-      <button id="btn-start-peak" class="btn btn-primary btn-full">
+      <button id="btn-start-peak" class="btn btn-primary btn-full" style="margin-top:1rem;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
         Iniciar test
       </button>
@@ -573,7 +618,7 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
         </div>
         <p class="info-block-text">Rate of Force Development (RFD) es una medida de la fuerza explosiva: qué tan rápido el músculo desarrolla tensión. Se representa como la pendiente de la curva fuerza-tiempo.</p>
       </div>
-      <button id="btn-start-rfd" class="btn btn-primary btn-full">
+      <button id="btn-start-rfd" class="btn btn-primary btn-full" style="margin-top:1rem;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
         Iniciar test
       </button>
@@ -660,43 +705,90 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
       <span class="config-title">Datos en Vivo</span>
     </div>
 
-    <div class="live-metrics-grid">
-      <div class="live-metric">
-        <span class="live-metric-label">Actual</span>
-        <div class="live-metric-readout">
-          <span id="live-actual" class="live-metric-value">0.0</span>
-          <span class="live-metric-unit">kg</span>
+    <!-- Config -->
+    <div id="live-section-config">
+      <div class="card" style="padding:0;overflow:hidden;">
+        <label class="live-zone-toggle-btn" for="live-zone-check">
+          <input type="checkbox" id="live-zone-check" class="live-zone-check">
+          <span style="font-size:.88rem;font-weight:500;">Zona objetivo</span>
+        </label>
+        <div id="live-zone-body" hidden style="padding:0 1rem 1rem;border-top:1px solid var(--border);">
+          <div class="field-row" style="margin-top:.75rem;">
+            <span class="field-label">Mínimo (kg)</span>
+            <input id="live-min-input" class="field-input" type="number" min="0" step="0.5" placeholder="—">
+          </div>
+          <div class="field-row" style="margin-top:.5rem;">
+            <span class="field-label">Máximo (kg)</span>
+            <input id="live-max-input" class="field-input" type="number" min="0" step="0.5" placeholder="—">
+          </div>
+          <div id="live-peak-row" hidden style="margin-top:.75rem;margin-bottom:.75rem;">
+            <span class="field-label" style="display:block;margin-bottom:.4rem;">Desde MVC</span>
+            <button id="live-peak-trigger" class="btn btn-secondary btn-full" style="display:flex;justify-content:space-between;align-items:center;text-align:left;gap:.5rem;">
+              <span id="live-peak-trigger-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">Seleccionar…</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="live-slider-section" hidden style="margin-top:1.25rem;">
+              <div class="dual-range">
+                <div class="dual-range-track" id="dual-track">
+                  <div class="dual-range-fill" id="dual-fill"></div>
+                  <div class="dual-range-thumb" id="thumb-min" tabindex="0" data-pct="40%"></div>
+                  <div class="dual-range-thumb" id="thumb-max" tabindex="0" data-pct="60%"></div>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:0 10px;">
+                <span id="slider-min-kg" style="font-size:.75rem;font-family:'DM Mono',monospace;color:var(--text3);">—</span>
+                <span id="slider-max-kg" style="font-size:.75rem;font-family:'DM Mono',monospace;color:var(--text3);">—</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="live-metric">
-        <span class="live-metric-label">Tiempo</span>
-        <div class="live-metric-readout">
-          <span id="live-timer" class="live-metric-value">0</span>
-        </div>
-      </div>
-      <div class="live-metric">
-        <span class="live-metric-label">Máx</span>
-        <div class="live-metric-readout">
-          <span id="live-max" class="live-metric-value">0.0</span>
-          <span class="live-metric-unit">kg</span>
-        </div>
-      </div>
-      <div class="live-metric">
-        <span class="live-metric-label">Media</span>
-        <div class="live-metric-readout">
-          <span id="live-media" class="live-metric-value">0.0</span>
-          <span class="live-metric-unit">kg</span>
-        </div>
-      </div>
+      <button id="btn-start-live" class="btn btn-primary btn-full" style="margin-top:1rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        Iniciar
+      </button>
     </div>
 
-    <div class="live-chart-card">
-      <canvas id="force-canvas-live"></canvas>
-    </div>
+    <!-- Measure -->
+    <div id="live-section-measure" hidden>
+      <div class="live-metrics-grid">
+        <div class="live-metric">
+          <span class="live-metric-label">Actual</span>
+          <div class="live-metric-readout">
+            <span id="live-actual" class="live-metric-value">0.0</span>
+            <span class="live-metric-unit">kg</span>
+          </div>
+        </div>
+        <div class="live-metric">
+          <span class="live-metric-label">Tiempo</span>
+          <div class="live-metric-readout">
+            <span id="live-timer" class="live-metric-value">0</span>
+          </div>
+        </div>
+        <div class="live-metric">
+          <span class="live-metric-label">Máx</span>
+          <div class="live-metric-readout">
+            <span id="live-max" class="live-metric-value">0.0</span>
+            <span class="live-metric-unit">kg</span>
+          </div>
+        </div>
+        <div class="live-metric">
+          <span class="live-metric-label">Media</span>
+          <div class="live-metric-readout">
+            <span id="live-media" class="live-metric-value">0.0</span>
+            <span class="live-metric-unit">kg</span>
+          </div>
+        </div>
+      </div>
 
-    <div class="measure-actions">
-      <button id="btn-live-restaurar" class="btn btn-secondary btn-full">Restaurar</button>
-      <button id="btn-live-borrar" class="btn btn-primary btn-full">Borrar</button>
+      <div class="live-chart-card">
+        <canvas id="force-canvas-live"></canvas>
+      </div>
+
+      <div class="measure-actions">
+        <button id="btn-live-restaurar" class="btn btn-secondary btn-full">Restaurar</button>
+        <button id="btn-live-borrar" class="btn btn-primary btn-full">Cerrar</button>
+      </div>
     </div>
 
   </div>
@@ -736,6 +828,14 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
     </button>
   </div>
 
+  <!-- Connecting state -->
+  <div id="ble-state-connecting" hidden>
+    <div class="ble-connecting-wrap">
+      <div class="ble-spinner"></div>
+      <span class="ble-connecting-label">Conectando…</span>
+    </div>
+  </div>
+
   <!-- Connected state -->
   <div id="ble-state-connected" hidden>
     <div class="ble-battery-row">
@@ -759,6 +859,33 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
   </div>
 </dialog>
 
+
+<!-- ── MVC bottom sheet ──────────────────────────────────────────────────── -->
+<div id="mvc-backdrop" class="mvc-backdrop"></div>
+<div id="mvc-sheet" class="mvc-sheet">
+  <div class="mvc-sheet-handle"></div>
+  <div class="mvc-sheet-header">
+    <span class="mvc-sheet-title">Seleccionar MVC</span>
+    <button id="mvc-sheet-close" class="dialog-close" aria-label="Cerrar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="mvc-sheet-search">
+    <svg class="mvc-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="mvc-search-input" class="mvc-search-input" type="text" placeholder="Buscar…" autocomplete="off">
+  </div>
+  <div class="mvc-sheet-sort">
+    <button class="mvc-sort-btn" id="mvc-sort-alpha">
+      <span id="mvc-sort-alpha-label">A-Z</span>
+      <svg id="mvc-sort-alpha-arrow" class="mvc-sort-arrow" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+    </button>
+    <button class="mvc-sort-btn active" id="mvc-sort-date">
+      <span id="mvc-sort-date-label">Reciente</span>
+      <svg id="mvc-sort-date-arrow" class="mvc-sort-arrow" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(180deg)"><polyline points="18 15 12 9 6 15"/></svg>
+    </button>
+  </div>
+  <div id="mvc-sheet-list" class="mvc-sheet-list"></div>
+</div>
 
 <script src="lib/session.js"></script>
 <script src="app.js"></script>

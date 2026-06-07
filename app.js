@@ -32,6 +32,7 @@ let _ctrlChar  = null;
 let _measuring = false;
 let _liveMode  = false;
 let _batteryPct = null;
+let _bleStatus  = 'disconnected';
 let _lastRawKg    = 0;
 let _tareOffset   = 0;
 let _peakDisplayKg = 0;
@@ -52,6 +53,14 @@ let _liveTimerIntervalId = null;
 let _liveMaxKg           = 0;
 let _liveSumKg           = 0;
 let _liveSampleCount     = 0;
+let _liveThresholdMin    = null;
+let _liveThresholdMax    = null;
+let _measurementsType    = null;
+let _selectedPeakResult  = null;
+let _mvcSortBy           = 'date';   // 'date' | 'alpha'
+let _mvcSortDir          = 'desc';   // 'desc' | 'asc'
+let _sliderMinPct        = 40;
+let _sliderMaxPct        = 60;
 
 // ── Contraction state machine ─────────────────────────────────────────────────
 let _cState   = 'idle';
@@ -69,7 +78,7 @@ let _repsTarget   = 3;
 let _laterality   = 'single';
 let _activeSide   = null;
 let _currentTest  = 'peak';
-const TEST_LABELS = { peak: 'Fuerza Pico', rfd: 'RFD' };
+const TEST_LABELS = { peak: 'Fuerza Pico', rfd: 'RFD', live: 'Datos en Vivo' };
 let _rfdCountdown = 3;
 
 // ── Session ───────────────────────────────────────────────────────────────────
@@ -85,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
   _detectHub();
   _checkBLESupport();
   _bindUI();
+  _initDualSlider();
   _loadSession();
   _registerSW();
 });
@@ -105,12 +115,18 @@ function _checkBLESupport() {
 // ── BLE connect / disconnect ──────────────────────────────────────────────────
 async function bleConnect() {
   _setBLEStatus('connecting');
+  _updateBLEDialog();
+  const dlg = document.getElementById('dialog-ble');
   try {
     _device = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: 'Progressor' }],
       optionalServices: [PROGRESSOR_SERVICE],
     });
     _device.addEventListener('gattserverdisconnected', _onDisconnect);
+
+    // El selector nativo cierra el <dialog> — reabrirlo con el spinner
+    _updateBLEDialog();
+    if (!dlg.open) dlg.showModal();
 
     const server = await _device.gatt.connect();
     const svc    = await server.getPrimaryService(PROGRESSOR_SERVICE);
@@ -125,6 +141,7 @@ async function bleConnect() {
 
     _setBLEStatus('connected');
     _updateBLEDialog();
+    if (!dlg.open) dlg.showModal();
   } catch (err) {
     if (err.name !== 'NotFoundError') console.warn('BLE:', err);
     _setBLEStatus('disconnected');
@@ -244,6 +261,181 @@ function _onMeasureSample(kg) {
 }
 
 // ── Live mode ─────────────────────────────────────────────────────────────────
+function _initDualSlider() {
+  const track    = document.getElementById('dual-track');
+  const thumbMin = document.getElementById('thumb-min');
+  const thumbMax = document.getElementById('thumb-max');
+  if (!track || !thumbMin || !thumbMax) return;
+  let active = null;
+
+  const pctFromX = clientX => {
+    const r = track.getBoundingClientRect();
+    return Math.max(0, Math.min(100, (clientX - r.left) / r.width * 100));
+  };
+  const onStart = (thumb, e) => { active = thumb; thumb.classList.add('dragging'); e.preventDefault(); };
+  const onMove  = clientX => {
+    if (!active) return;
+    const p = pctFromX(clientX);
+    if (active === thumbMin) _sliderMinPct = Math.min(p, _sliderMaxPct);
+    else                     _sliderMaxPct = Math.max(p, _sliderMinPct);
+    _updateDualSlider();
+  };
+  const onEnd = () => { if (active) active.classList.remove('dragging'); active = null; };
+
+  thumbMin.addEventListener('mousedown',  e => onStart(thumbMin, e));
+  thumbMax.addEventListener('mousedown',  e => onStart(thumbMax, e));
+  document.addEventListener('mousemove',  e => onMove(e.clientX));
+  document.addEventListener('mouseup',    onEnd);
+  thumbMin.addEventListener('touchstart', e => onStart(thumbMin, e), { passive: false });
+  thumbMax.addEventListener('touchstart', e => onStart(thumbMax, e), { passive: false });
+  document.addEventListener('touchmove',  e => { if (active) onMove(e.touches[0].clientX); }, { passive: false });
+  document.addEventListener('touchend',   onEnd);
+
+  [thumbMin, thumbMax].forEach(thumb => {
+    thumb.addEventListener('keydown', e => {
+      const step = e.shiftKey ? 5 : 1;
+      if (thumb === thumbMin) {
+        if (e.key === 'ArrowLeft')  { _sliderMinPct = Math.max(0, _sliderMinPct - step); e.preventDefault(); }
+        if (e.key === 'ArrowRight') { _sliderMinPct = Math.min(_sliderMaxPct, _sliderMinPct + step); e.preventDefault(); }
+      } else {
+        if (e.key === 'ArrowLeft')  { _sliderMaxPct = Math.max(_sliderMinPct, _sliderMaxPct - step); e.preventDefault(); }
+        if (e.key === 'ArrowRight') { _sliderMaxPct = Math.min(100, _sliderMaxPct + step); e.preventDefault(); }
+      }
+      _updateDualSlider();
+    });
+  });
+}
+
+function _updateDualSlider() {
+  const fill     = document.getElementById('dual-fill');
+  const thumbMin = document.getElementById('thumb-min');
+  const thumbMax = document.getElementById('thumb-max');
+  if (!fill || !thumbMin || !thumbMax) return;
+  const minR = Math.round(_sliderMinPct);
+  const maxR = Math.round(_sliderMaxPct);
+  thumbMin.style.left  = `${_sliderMinPct}%`;
+  thumbMax.style.left  = `${_sliderMaxPct}%`;
+  fill.style.left      = `${_sliderMinPct}%`;
+  fill.style.width     = `${_sliderMaxPct - _sliderMinPct}%`;
+  thumbMin.dataset.pct = `${minR}%`;
+  thumbMax.dataset.pct = `${maxR}%`;
+  const kg = _selectedPeakResult ? _getRefPeakKg(_selectedPeakResult) : null;
+  if (kg) {
+    const minKg = (_sliderMinPct / 100 * kg).toFixed(1);
+    const maxKg = (_sliderMaxPct / 100 * kg).toFixed(1);
+    const minInput = document.getElementById('live-min-input');
+    const maxInput = document.getElementById('live-max-input');
+    if (minInput) minInput.value = minKg;
+    if (maxInput) maxInput.value = maxKg;
+    const minKgEl = document.getElementById('slider-min-kg');
+    const maxKgEl = document.getElementById('slider-max-kg');
+    if (minKgEl) minKgEl.textContent = `${minKg} kg`;
+    if (maxKgEl) maxKgEl.textContent = `${maxKg} kg`;
+  }
+}
+
+function _showLiveSection(name) {
+  ['config', 'measure'].forEach(s => {
+    const el = document.getElementById(`live-section-${s}`);
+    if (el) el.hidden = s !== name;
+  });
+}
+
+function _getRefPeakKg(r) {
+  if (r.laterality === 'comparison') {
+    const l = r.sides?.left?.peak, g = r.sides?.right?.peak;
+    if (l != null && g != null) return Math.min(l, g);
+    return l ?? g ?? null;
+  }
+  return r.peak ?? null;
+}
+
+function _populateLivePeakSelector() {
+  const row = document.getElementById('live-peak-row');
+  if (!row) return;
+  row.hidden = !_savedResults.some(r => r.testType === 'peak');
+}
+
+function _openMvcSheet() {
+  const searchInput = document.getElementById('mvc-search-input');
+  if (searchInput) searchInput.value = '';
+  _renderMvcSheetItems('');
+  document.getElementById('mvc-backdrop').classList.add('open');
+  document.getElementById('mvc-sheet').classList.add('open');
+}
+
+function _closeMvcSheet() {
+  document.getElementById('mvc-backdrop').classList.remove('open');
+  document.getElementById('mvc-sheet').classList.remove('open');
+}
+
+function _updateMvcSortButtons() {
+  const alphaBtn   = document.getElementById('mvc-sort-alpha');
+  const alphaLabel = document.getElementById('mvc-sort-alpha-label');
+  const alphaArrow = document.getElementById('mvc-sort-alpha-arrow');
+  const dateBtn    = document.getElementById('mvc-sort-date');
+  const dateLabel  = document.getElementById('mvc-sort-date-label');
+  const dateArrow  = document.getElementById('mvc-sort-date-arrow');
+  if (!alphaBtn || !dateBtn) return;
+
+  const byAlpha = _mvcSortBy === 'alpha';
+  alphaBtn.classList.toggle('active', byAlpha);
+  dateBtn.classList.toggle('active', !byAlpha);
+
+  if (alphaLabel) alphaLabel.textContent = (!byAlpha || _mvcSortDir === 'asc') ? 'A-Z' : 'Z-A';
+  if (alphaArrow) alphaArrow.style.transform = (byAlpha && _mvcSortDir === 'desc') ? 'rotate(180deg)' : '';
+
+  if (dateLabel) dateLabel.textContent = (byAlpha || _mvcSortDir === 'desc') ? 'Reciente' : 'Antiguo';
+  if (dateArrow) dateArrow.style.transform = (!byAlpha && _mvcSortDir === 'asc') ? '' : 'rotate(180deg)';
+}
+
+function _renderMvcSheetItems(query = '') {
+  const list = document.getElementById('mvc-sheet-list');
+  if (!list) return;
+
+  let peaks = _savedResults.filter(r => r.testType === 'peak');
+  if (_mvcSortBy === 'alpha') {
+    peaks = [...peaks].sort((a, b) => {
+      const cmp = (a.label ?? '').localeCompare(b.label ?? '');
+      return _mvcSortDir === 'asc' ? cmp : -cmp;
+    });
+  } else if (_mvcSortDir === 'desc') {
+    peaks = [...peaks].reverse();
+  }
+
+  const q = query.trim().toLowerCase();
+  if (q) peaks = peaks.filter(r => (r.label ?? '').toLowerCase().includes(q));
+
+  if (!peaks.length) {
+    list.innerHTML = `<p class="mvc-empty">${q ? `Sin resultados para "${query}"` : 'Sin mediciones MVC en esta sesión'}</p>`;
+    return;
+  }
+
+  list.innerHTML = peaks.map(r => {
+    const kg     = _getRefPeakKg(r);
+    const kgStr  = kg != null ? `${kg.toFixed(1)} kg` : '—';
+    const ts     = r.timestamp ? new Date(r.timestamp).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '';
+    const sel    = r === _selectedPeakResult ? ' selected' : '';
+    return `<div class="mvc-item${sel}"><span class="mvc-item-label">${r.label ?? 'MVC'}</span><span class="mvc-item-meta">${kgStr}${ts ? ' · ' + ts : ''}</span></div>`;
+  }).join('');
+
+  list.querySelectorAll('.mvc-item').forEach((el, i) => {
+    el.addEventListener('click', () => {
+      _selectedPeakResult = peaks[i];
+      const kg = _getRefPeakKg(_selectedPeakResult);
+      const kgStr = kg != null ? ` — ${kg.toFixed(1)} kg` : '';
+      const lbl = document.getElementById('live-peak-trigger-label');
+      if (lbl) lbl.textContent = (_selectedPeakResult.label ?? 'MVC') + kgStr;
+      _sliderMinPct = 40;
+      _sliderMaxPct = 60;
+      const sliderSection = document.getElementById('live-slider-section');
+      if (sliderSection) sliderSection.hidden = false;
+      _updateDualSlider();
+      _closeMvcSheet();
+    });
+  });
+}
+
 async function _startLive() {
   _liveChartPoints  = [];
   _liveMeasureStart = performance.now();
@@ -302,20 +494,6 @@ function _renderLiveDisplay() {
   set('live-media',  '0.0');
 }
 
-function _buildLiveResults() {
-  const avg = _liveSampleCount > 0 ? _liveSumKg / _liveSampleCount : 0;
-  const sameType = _savedResults.filter(r => r.testType === 'live').length;
-  const label    = sameType > 0 ? `Datos en Vivo · ${sameType + 1}` : 'Datos en Vivo';
-  return {
-    label,
-    testType:  'live',
-    laterality: null,
-    peak:       _liveMaxKg  > 0 ? _liveMaxKg  : null,
-    avg:        avg          > 0 ? avg          : null,
-    duration:   _liveTimerSec,
-    timestamp:  new Date().toISOString(),
-  };
-}
 
 function _onLiveSample(kg) {
   const t = performance.now() - _liveMeasureStart;
@@ -384,22 +562,24 @@ function _stopChartLoop() {
   _drawChart(`${_currentTest}-canvas`, _chartPoints, _measureStart);
 }
 
-const _LIVE_CHART_OPTS = { absoluteLabels: true, labelStep: 1, lineColor: 'var(--accent)', showThreshold: false };
+function _liveChartOpts() {
+  return { absoluteLabels: true, labelStep: 1, lineColor: '#fb923c', showThreshold: false, thresholdMin: _liveThresholdMin, thresholdMax: _liveThresholdMax };
+}
 
 function _startLiveChartLoop() {
   cancelAnimationFrame(_liveRafId);
-  const tick = () => { _drawChart('force-canvas-live', _liveChartPoints, _liveMeasureStart, _LIVE_CHART_OPTS); if (_liveMode) _liveRafId = requestAnimationFrame(tick); };
+  const tick = () => { _drawChart('force-canvas-live', _liveChartPoints, _liveMeasureStart, _liveChartOpts()); if (_liveMode) _liveRafId = requestAnimationFrame(tick); };
   _liveRafId = requestAnimationFrame(tick);
 }
 
 function _stopLiveChartLoop() {
   cancelAnimationFrame(_liveRafId);
   _liveRafId = null;
-  _drawChart('force-canvas-live', _liveChartPoints, _liveMeasureStart, _LIVE_CHART_OPTS);
+  _drawChart('force-canvas-live', _liveChartPoints, _liveMeasureStart, _liveChartOpts());
 }
 
 function _drawChart(canvasId, points, measureStart, opts = {}) {
-  const { absoluteLabels = false, labelStep = 2, lineColor = '#e8edf5', showThreshold = true } = opts;
+  const { absoluteLabels = false, labelStep = 2, lineColor = '#e8edf5', showThreshold = true, thresholdMin = null, thresholdMax = null } = opts;
   const canvas = document.getElementById(canvasId);
   if (!canvas || !canvas.width) return;
   const ctx = canvas.getContext('2d');
@@ -416,7 +596,7 @@ function _drawChart(canvasId, points, measureStart, opts = {}) {
 
   const now    = performance.now() - measureStart;
   const tStart = now - CHART_WINDOW_MS;
-  const maxKg  = Math.max(showThreshold ? _thresholdKg * 2.5 : 5, ...points.map(s => s.kg), 20) * 1.1;
+  const maxKg  = Math.max(showThreshold ? _thresholdKg * 2.5 : 5, ...points.map(s => s.kg), thresholdMax ?? 0, 20) * 1.1;
 
   const xOf = t  => ml + ((t  - tStart) / CHART_WINDOW_MS) * cw;
   const yOf = kg => mt + ch * (1 - kg / maxKg);
@@ -441,6 +621,23 @@ function _drawChart(canvasId, points, measureStart, opts = {}) {
     ctx.setLineDash([]);
   }
 
+  if (thresholdMin !== null || thresholdMax !== null) {
+    const yBandTop    = thresholdMax !== null ? yOf(thresholdMax) : yOf(maxKg / 1.1);
+    const yBandBottom = thresholdMin !== null ? yOf(thresholdMin) : yOf(0);
+    ctx.fillStyle = 'rgba(251,146,60,0.08)';
+    ctx.fillRect(ml, yBandTop, cw, yBandBottom - yBandTop);
+    ctx.lineWidth = 1.5 * dpr;
+    ctx.setLineDash([5 * dpr, 4 * dpr]);
+    ctx.strokeStyle = 'rgba(251,146,60,0.45)';
+    if (thresholdMin !== null) {
+      ctx.beginPath(); ctx.moveTo(ml, yOf(thresholdMin)); ctx.lineTo(ml + cw, yOf(thresholdMin)); ctx.stroke();
+    }
+    if (thresholdMax !== null) {
+      ctx.beginPath(); ctx.moveTo(ml, yOf(thresholdMax)); ctx.lineTo(ml + cw, yOf(thresholdMax)); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+
   const visible = points.filter(s => s.t >= tStart);
   if (_measuring && _cState !== 'idle' && _cBuffer.length > 0) {
     const cb = _cBuffer.filter(s => s.t >= tStart);
@@ -456,7 +653,14 @@ function _drawChart(canvasId, points, measureStart, opts = {}) {
   }
 
   if (visible.length < 2) return;
-  ctx.strokeStyle = lineColor;
+  let strokeColor = lineColor;
+  if ((thresholdMin !== null || thresholdMax !== null) && visible.length > 0) {
+    const lastKg = visible[visible.length - 1].kg;
+    const aboveMin = thresholdMin === null || lastKg >= thresholdMin;
+    const belowMax = thresholdMax === null || lastKg <= thresholdMax;
+    strokeColor = (aboveMin && belowMax) ? '#4ade80' : '#f87171';
+  }
+  ctx.strokeStyle = strokeColor;
   ctx.lineWidth   = 1.5 * dpr;
   ctx.lineJoin    = 'round';
   ctx.beginPath();
@@ -514,13 +718,15 @@ function _calcAI(left, right) {
 
 // ── Results builder ───────────────────────────────────────────────────────────
 function _genLabel() {
-  const typeLabel = _currentTest === 'peak' ? 'MVC' : 'RFD';
-  const latLabel  = _laterality === 'comparison' ? ' bilateral'
-                  : _laterality === 'left'        ? ' (Izq)'
-                  : _laterality === 'right'        ? ' (Der)'
-                  : '';
-  const sameType = _savedResults.filter(r => r.testType === _currentTest && r.laterality === _laterality).length;
-  return sameType > 0 ? `${typeLabel}${latLabel} · ${sameType + 1}` : `${typeLabel}${latLabel}`;
+  const typeLabel  = _currentTest === 'peak' ? 'MVC' : 'RFD';
+  const latLabel   = _laterality === 'comparison' ? ' bilateral'
+                   : _laterality === 'left'        ? ' (Izq)'
+                   : _laterality === 'right'        ? ' (Der)'
+                   : '';
+  const sameType   = _savedResults.filter(r => r.testType === _currentTest && r.laterality === _laterality).length;
+  const autoLabel  = sameType > 0 ? `${typeLabel}${latLabel} · ${sameType + 1}` : `${typeLabel}${latLabel}`;
+  const movement   = _currentTest === 'peak' ? (document.getElementById('peak-label-input')?.value.trim() ?? '') : '';
+  return movement ? `${movement} · ${autoLabel}` : autoLabel;
 }
 
 function _bestOf(arr, key) {
@@ -757,11 +963,79 @@ function _bindUI() {
     btn.addEventListener('click', () => _switchPeakSide(btn.dataset.side));
   });
   document.getElementById('btn-stop-rfd').addEventListener('click', _endCurrentSide);
-  document.getElementById('btn-live-borrar').addEventListener('click', async () => {
-    if (_liveTimerSec >= 2) {
-      const payload = _buildLiveResults();
-      _saveResults(payload);
+  document.getElementById('btn-start-live').addEventListener('click', () => {
+    if (!_device?.gatt?.connected) {
+      _updateBLEDialog();
+      document.getElementById('dialog-ble').showModal();
+      return;
     }
+    const zoneActive = document.getElementById('live-zone-check')?.checked;
+    if (zoneActive) {
+      const minVal = parseFloat(document.getElementById('live-min-input').value);
+      const maxVal = parseFloat(document.getElementById('live-max-input').value);
+      _liveThresholdMin = isNaN(minVal) || minVal <= 0 ? null : minVal;
+      _liveThresholdMax = isNaN(maxVal) || maxVal <= 0 ? null : maxVal;
+    } else {
+      _liveThresholdMin = null;
+      _liveThresholdMax = null;
+    }
+    _showLiveSection('measure');
+    _startLive();
+  });
+  document.getElementById('live-peak-trigger').addEventListener('click', _openMvcSheet);
+  document.getElementById('mvc-backdrop').addEventListener('click', _closeMvcSheet);
+  document.getElementById('mvc-sheet-close').addEventListener('click', _closeMvcSheet);
+  document.getElementById('mvc-sort-alpha').addEventListener('click', () => {
+    if (_mvcSortBy === 'alpha') {
+      _mvcSortDir = _mvcSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      _mvcSortBy = 'alpha';
+      _mvcSortDir = 'asc';
+    }
+    _updateMvcSortButtons();
+    _renderMvcSheetItems(document.getElementById('mvc-search-input').value);
+  });
+  document.getElementById('mvc-sort-date').addEventListener('click', () => {
+    if (_mvcSortBy === 'date') {
+      _mvcSortDir = _mvcSortDir === 'desc' ? 'asc' : 'desc';
+    } else {
+      _mvcSortBy = 'date';
+      _mvcSortDir = 'desc';
+    }
+    _updateMvcSortButtons();
+    _renderMvcSheetItems(document.getElementById('mvc-search-input').value);
+  });
+  document.getElementById('mvc-search-input').addEventListener('input', e => _renderMvcSheetItems(e.target.value));
+  document.getElementById('live-min-input').addEventListener('change', () => {
+    const minEl = document.getElementById('live-min-input');
+    const maxEl = document.getElementById('live-max-input');
+    const minVal = parseFloat(minEl.value);
+    const maxVal = parseFloat(maxEl.value);
+    if (!isNaN(minVal) && !isNaN(maxVal) && minVal > maxVal) maxEl.value = minEl.value;
+  });
+  document.getElementById('live-max-input').addEventListener('change', () => {
+    const minEl = document.getElementById('live-min-input');
+    const maxEl = document.getElementById('live-max-input');
+    const minVal = parseFloat(minEl.value);
+    const maxVal = parseFloat(maxEl.value);
+    if (!isNaN(minVal) && !isNaN(maxVal) && maxVal < minVal) minEl.value = maxEl.value;
+  });
+  document.getElementById('live-zone-check').addEventListener('change', function () {
+    const body = document.getElementById('live-zone-body');
+    body.hidden = !this.checked;
+    if (!this.checked) {
+      document.getElementById('live-min-input').value = '';
+      document.getElementById('live-max-input').value = '';
+      _selectedPeakResult = null;
+      _sliderMinPct = 40;
+      _sliderMaxPct = 60;
+      const sliderSection = document.getElementById('live-slider-section');
+      if (sliderSection) sliderSection.hidden = true;
+      const lbl = document.getElementById('live-peak-trigger-label');
+      if (lbl) lbl.textContent = 'Seleccionar…';
+    }
+  });
+  document.getElementById('btn-live-borrar').addEventListener('click', async () => {
     await _stopLive();
     if (_inSubScreen) history.back(); else _showScreen('screen-menu');
   });
@@ -769,22 +1043,29 @@ function _bindUI() {
 
   // Results buttons
   document.getElementById('btn-peak-new-test').addEventListener('click', () => {
+    if (!_device?.gatt?.connected) { _updateBLEDialog(); document.getElementById('dialog-ble').showModal(); return; }
     const titleEl = document.getElementById('peak-results-title');
     if (titleEl) titleEl.textContent = 'Resultados del test';
-    _showTestSection('peak', 'config');
+    _openTest('peak');
   });
   document.getElementById('btn-rfd-new-test').addEventListener('click', () => {
+    if (!_device?.gatt?.connected) { _updateBLEDialog(); document.getElementById('dialog-ble').showModal(); return; }
     _showTestSection('rfd', 'config');
   });
   document.getElementById('btn-peak-session').addEventListener('click', () => {
+    _measurementsType = null;
+    _setNewMeasurementBtn(null);
     _renderMeasurementsList();
     _showScreen('screen-measurements');
   });
   document.getElementById('btn-rfd-session').addEventListener('click', () => {
+    _measurementsType = null;
+    _setNewMeasurementBtn(null);
     _renderMeasurementsList();
     _showScreen('screen-measurements');
   });
   document.getElementById('btn-new-measurement').addEventListener('click', () => {
+    if (_measurementsType) { _openTestOrConnect(_measurementsType); return; }
     if (_inSubScreen) history.back(); else _showScreen('screen-menu');
   });
 
@@ -793,7 +1074,9 @@ function _bindUI() {
   document.getElementById('globalExportChips').addEventListener('click', e => {
     const chip = e.target.closest('.region-chip');
     if (!chip) return;
-    _renderMeasurementsList(chip.dataset.type);
+    _measurementsType = chip.dataset.type ?? null;
+    _setNewMeasurementBtn(_measurementsType);
+    _renderMeasurementsList(_measurementsType);
     _showScreen('screen-measurements');
   });
 
@@ -852,9 +1135,20 @@ function _renderSessionState() {
 }
 
 // ── Test routing ──────────────────────────────────────────────────────────────
+function _openTestOrConnect(test) {
+  if (!_device?.gatt?.connected) {
+    _updateBLEDialog();
+    document.getElementById('dialog-ble').showModal();
+    return;
+  }
+  _openTest(test);
+}
+
 function _openTest(test) {
   _currentTest = test;
   if (test === 'peak') {
+    const labelInput = document.getElementById('peak-label-input');
+    if (labelInput) labelInput.value = '';
     const active = document.querySelector('#peak-section-config .mode-btn.active');
     _laterality = active?.dataset.laterality ?? 'single';
     _showScreen('screen-peak');
@@ -865,8 +1159,20 @@ function _openTest(test) {
     _showScreen('screen-rfd');
     _showTestSection('rfd', 'config');
   } else if (test === 'live') {
+    _selectedPeakResult = null;
+    _sliderMinPct = 40;
+    _sliderMaxPct = 60;
+    const sliderSection = document.getElementById('live-slider-section');
+    if (sliderSection) sliderSection.hidden = true;
+    const lbl = document.getElementById('live-peak-trigger-label');
+    if (lbl) lbl.textContent = 'Seleccionar…';
+    const zoneCheck = document.getElementById('live-zone-check');
+    if (zoneCheck) zoneCheck.checked = false;
+    const zoneBody = document.getElementById('live-zone-body');
+    if (zoneBody) zoneBody.hidden = true;
     _showScreen('screen-live');
-    _startLive();
+    _showLiveSection('config');
+    _populateLivePeakSelector();
   }
 }
 
@@ -1021,22 +1327,28 @@ function _showTestSection(test, section) {
   });
   if (section === 'results') {
     const btn = document.getElementById(`btn-${test}-new-test`);
-    if (btn) btn.textContent = `Nuevo ${TEST_LABELS[test] ?? test}`;
+    if (btn) {
+      const cardTitle = document.querySelector(`[data-test="${test}"] .menu-card-title`)?.textContent;
+      btn.textContent = cardTitle ? `+ ${cardTitle}` : `+ Nueva medición`;
+    }
   }
 }
 
 // ── Render helpers ────────────────────────────────────────────────────────────
 function _setBLEStatus(state) {
+  _bleStatus = state;
   const badge = document.getElementById('btn-ble');
   if (!badge) return;
   badge.classList.remove('active', 'pending', 'error');
-  if (state === 'connected')    badge.classList.add('active');
-  if (state !== 'connected')    badge.classList.add('pending');
+  if (state === 'connected') badge.classList.add('active');
+  else                       badge.classList.add('pending');
 }
 
 function _updateBLEDialog() {
-  const connected = !!_device?.gatt?.connected;
-  document.getElementById('ble-state-disconnected').hidden = connected;
+  const connecting = _bleStatus === 'connecting';
+  const connected  = _bleStatus === 'connected';
+  document.getElementById('ble-state-disconnected').hidden = connecting || connected;
+  document.getElementById('ble-state-connecting').hidden   = !connecting;
   document.getElementById('ble-state-connected').hidden    = !connected;
   document.getElementById('ble-dialog-title').textContent  = connected ? 'Dispositivo' : 'Conectar dispositivo';
   if (connected && _batteryPct !== null) _renderBattery(_batteryPct);
@@ -1339,6 +1651,13 @@ function _showCopyFeedback() {
 }
 
 // ── Measurements list ─────────────────────────────────────────────────────────
+function _setNewMeasurementBtn(type) {
+  const btn = document.getElementById('btn-new-measurement');
+  if (!btn) return;
+  const cardTitle = type ? document.querySelector(`[data-test="${type}"] .menu-card-title`)?.textContent : null;
+  btn.textContent = cardTitle ? `+ ${cardTitle}` : '+ Nueva medición';
+}
+
 function _renderMeasurementsList(type = null) {
   const list    = document.getElementById('measurements-list');
   const titleEl = document.getElementById('measurements-title');
