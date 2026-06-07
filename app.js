@@ -62,7 +62,7 @@ let _repsTarget   = 3;
 let _laterality   = 'single';
 let _activeSide   = null;
 let _currentTest  = 'peak';
-const TEST_LABELS = { peak: 'peak force', rfd: 'RFD' };
+const TEST_LABELS = { peak: 'Fuerza Pico', rfd: 'RFD' };
 let _rfdCountdown = 3;
 
 // ── Session ───────────────────────────────────────────────────────────────────
