@@ -350,6 +350,22 @@ function _getRefPeakKg(r) {
   return r.peak ?? null;
 }
 
+function _validateLiveZoneInputs() {
+  const minEl = document.getElementById('live-min-input');
+  const maxEl = document.getElementById('live-max-input');
+  const btn   = document.getElementById('btn-start-live');
+  const errMsg = document.getElementById('live-threshold-error');
+  const minVal = parseFloat(minEl.value);
+  const maxVal = parseFloat(maxEl.value);
+  const invalid = !isNaN(minVal) && minEl.value !== '' &&
+                  !isNaN(maxVal) && maxEl.value !== '' &&
+                  minVal >= maxVal;
+  minEl.classList.toggle('error', invalid);
+  maxEl.classList.toggle('error', invalid);
+  btn.disabled = invalid;
+  if (errMsg) errMsg.hidden = !invalid;
+}
+
 function _populateLivePeakSelector() {
   const row = document.getElementById('live-peak-row');
   if (!row) return;
@@ -1006,26 +1022,19 @@ function _bindUI() {
     _renderMvcSheetItems(document.getElementById('mvc-search-input').value);
   });
   document.getElementById('mvc-search-input').addEventListener('input', e => _renderMvcSheetItems(e.target.value));
-  document.getElementById('live-min-input').addEventListener('change', () => {
-    const minEl = document.getElementById('live-min-input');
-    const maxEl = document.getElementById('live-max-input');
-    const minVal = parseFloat(minEl.value);
-    const maxVal = parseFloat(maxEl.value);
-    if (!isNaN(minVal) && !isNaN(maxVal) && minVal > maxVal) maxEl.value = minEl.value;
-  });
-  document.getElementById('live-max-input').addEventListener('change', () => {
-    const minEl = document.getElementById('live-min-input');
-    const maxEl = document.getElementById('live-max-input');
-    const minVal = parseFloat(minEl.value);
-    const maxVal = parseFloat(maxEl.value);
-    if (!isNaN(minVal) && !isNaN(maxVal) && maxVal < minVal) minEl.value = maxEl.value;
-  });
+  document.getElementById('live-min-input').addEventListener('change', _validateLiveZoneInputs);
+  document.getElementById('live-max-input').addEventListener('change', _validateLiveZoneInputs);
   document.getElementById('live-zone-check').addEventListener('change', function () {
     const body = document.getElementById('live-zone-body');
     body.hidden = !this.checked;
     if (!this.checked) {
       document.getElementById('live-min-input').value = '';
       document.getElementById('live-max-input').value = '';
+      document.getElementById('live-min-input').classList.remove('error');
+      document.getElementById('live-max-input').classList.remove('error');
+      document.getElementById('btn-start-live').disabled = false;
+      const errMsg = document.getElementById('live-threshold-error');
+      if (errMsg) errMsg.hidden = true;
       _selectedPeakResult = null;
       _sliderMinPct = 40;
       _sliderMaxPct = 60;

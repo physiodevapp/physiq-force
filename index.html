@@ -105,8 +105,9 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 /* ── Buttons ─────────────────────────────────────────────────────────── */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.75rem 1.25rem;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-size:.9rem;font-weight:500;transition:all .15s;}
 .btn-primary{background:var(--accent);color:#0a0d12;}
-.btn-primary:hover{filter:brightness(1.1);}
-.btn-primary:active{transform:scale(.97);}
+.btn-primary:hover:not(:disabled){filter:brightness(1.1);}
+.btn-primary:active:not(:disabled){transform:scale(.97);}
+.btn-primary:disabled{background:var(--surface3);color:var(--text3);cursor:not-allowed;}
 .btn-secondary{background:var(--surface2);color:var(--text2);border:1px solid var(--border);}
 .btn-secondary:hover{border-color:var(--border2);color:var(--text);}
 .btn-danger{background:rgba(255,71,87,.1);color:var(--danger);border:1px solid rgba(255,71,87,.22);}
@@ -142,6 +143,7 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .field-label{font-size:.88rem;color:var(--text2);}
 .field-input{width:72px;padding:.45rem .75rem;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:'DM Mono',monospace;font-size:.9rem;text-align:center;outline:none;transition:border-color .2s;}
 .field-input:focus{border-color:var(--accent);}
+.field-input.error{border-color:#f87171;}
 
 /* ── Text input (shared) ─────────────────────────────────────────────── */
 .text-input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:'Outfit',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s;}
@@ -747,6 +749,7 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
         Iniciar
       </button>
+      <p id="live-threshold-error" hidden style="margin-top:.5rem;font-size:.78rem;color:#f87171;text-align:center;">El mínimo debe ser inferior al máximo</p>
     </div>
 
     <!-- Measure -->
