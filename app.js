@@ -193,6 +193,7 @@ async function startMeasurement() {
   _measuring    = true;
   _measureStart = performance.now();
 
+  document.querySelector('.app-header').classList.add('measuring');
   _renderLiveReset();
   if (_currentTest !== 'peak') {
     _initCanvas(`${_currentTest}-canvas`);
@@ -204,6 +205,7 @@ async function startMeasurement() {
 async function _stopMeasurement() {
   if (!_measuring) return;
   _measuring = false;
+  document.querySelector('.app-header').classList.remove('measuring');
   clearTimeout(_debTimer);
   if (_cState === 'active' || _cState === 'debounce') _finalizeContraction();
   _cState = 'idle';
@@ -238,6 +240,7 @@ async function _startLive() {
   _liveChartPoints  = [];
   _liveMeasureStart = performance.now();
   _liveMode         = true;
+  document.querySelector('.app-header').classList.add('measuring');
   _initCanvas('force-canvas-live');
   _startLiveChartLoop();
   _doSoftTare();
@@ -246,6 +249,7 @@ async function _startLive() {
 async function _stopLive() {
   if (!_liveMode) return;
   _liveMode = false;
+  document.querySelector('.app-header').classList.remove('measuring');
   _stopLiveChartLoop();
 }
 
