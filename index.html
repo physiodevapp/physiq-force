@@ -68,23 +68,23 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
   .logo-main,.logo-sub{font-size:1.2rem;}
   .translate-banner{top:52px;}
   .translate-tooltip{display:none;}
-  .main{margin-top:52px;}
+  .main{margin-top:68px;}
   .btn-reset-text{display:none;}
   .btn-reset{padding:5px 10px;font-size:.75rem;}
-  body:has(.translate-banner.visible) .main{margin-top:calc(52px + 38px);}
+  body:has(.translate-banner.visible) .main{margin-top:calc(52px + 16px + 38px);}
 }
 @media(max-width:480px){
   .app-header{height:48px;}
   .logo-main,.logo-sub{font-size:1.1rem;}
   .translate-banner{top:48px;}
-  .main{margin-top:48px;}
-  body:has(.translate-banner.visible) .main{margin-top:calc(48px + 38px);}
+  .main{margin-top:64px;}
+  body:has(.translate-banner.visible) .main{margin-top:calc(48px + 16px + 38px);}
 }
 @media(max-height:500px) and (max-width:900px){
   .app-header{height:44px;}
   .translate-banner{top:44px;}
-  .main{margin-top:44px;}
-  body:has(.translate-banner.visible) .main{margin-top:calc(44px + 38px);}
+  .main{margin-top:60px;}
+  body:has(.translate-banner.visible) .main{margin-top:calc(44px + 16px + 38px);}
 }
 @media(max-width:360px){
   .logo-sub-word{display:none;}
@@ -93,7 +93,7 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 @media(min-width:769px){.translate-banner{display:none;}}
 
 /* ── Main ────────────────────────────────────────────────────────────── */
-.main{margin-top:64px;flex:1;padding:1rem;display:flex;flex-direction:column;gap:.875rem;max-width:480px;width:100%;margin-left:auto;margin-right:auto;transition:margin-top .25s ease;}
+.main{margin-top:80px;flex:1;padding:1rem;display:flex;flex-direction:column;gap:.875rem;max-width:480px;width:100%;margin-left:auto;margin-right:auto;transition:margin-top .25s ease;}
 .screen{flex:1;display:flex;flex-direction:column;gap:.875rem;}
 
 /* ── Cards ───────────────────────────────────────────────────────────── */
