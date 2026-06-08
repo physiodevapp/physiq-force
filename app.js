@@ -1359,6 +1359,7 @@ function _updateBLEDialog() {
   document.getElementById('ble-state-disconnected').hidden = connecting || connected;
   document.getElementById('ble-state-connecting').hidden   = !connecting;
   document.getElementById('ble-state-connected').hidden    = !connected;
+  document.getElementById('btn-ble-close').hidden          = connecting;
   document.getElementById('ble-dialog-title').textContent  = connected ? 'Dispositivo' : 'Conectar dispositivo';
   if (connected && _batteryPct !== null) _renderBattery(_batteryPct);
 }
