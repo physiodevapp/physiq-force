@@ -350,6 +350,35 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 .confirm-box-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--text);margin-bottom:.6rem;}
 .confirm-box-text{font-size:.83rem;color:var(--text2);line-height:1.5;margin-bottom:1.4rem;}
 .confirm-box-btns{display:flex;gap:.75rem;justify-content:flex-end;}
+
+/* ── RFD scroll picker ───────────────────────────────────────────────── */
+.rfd-picker-wrap{width:110px;height:90px;position:relative;overflow:hidden;border-radius:8px;background:var(--surface2);border:1px solid var(--border2);flex-shrink:0;}
+.rfd-picker{width:100%;height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.rfd-picker::-webkit-scrollbar{display:none;}
+.rfd-picker-spacer{height:30px;}
+.rfd-picker-item{height:30px;scroll-snap-align:center;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:.82rem;color:var(--text3);cursor:pointer;}
+.rfd-picker-item.active{color:var(--text);font-weight:500;}
+.rfd-picker-wrap::before,.rfd-picker-wrap::after{content:'';position:absolute;left:0;right:0;height:30px;pointer-events:none;z-index:2;}
+.rfd-picker-wrap::before{top:0;background:linear-gradient(to bottom,var(--surface2) 10%,transparent);}
+.rfd-picker-wrap::after{bottom:0;background:linear-gradient(to top,var(--surface2) 10%,transparent);}
+.rfd-picker-hl{position:absolute;top:50%;left:4px;right:4px;height:30px;transform:translateY(-50%);background:var(--surface3);border-radius:6px;border:1px solid var(--border2);pointer-events:none;z-index:1;}
+/* ── RFD value grid ──────────────────────────────────────────────────── */
+.rfd-vals-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+.rfd-val-cell{display:flex;flex-direction:column;align-items:center;gap:.2rem;padding:.75rem .5rem;background:var(--surface2);border-radius:10px;border:1px solid var(--border);}
+.rfd-val-lbl{font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+.rfd-val-num{font-family:'DM Mono',monospace;font-size:1.55rem;font-weight:300;color:var(--text);line-height:1;}
+.rfd-val-unit{font-size:.72rem;color:var(--text3);}
+/* ── RFD settings toggle ─────────────────────────────────────────────── */
+.rfd-toggle-btn{width:100%;background:none;border:none;padding:.8rem 0;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:inherit;color:var(--text);font-size:.9rem;font-weight:500;}
+.rfd-toggle-btn svg{transition:transform .2s;}
+.rfd-toggle-btn.open svg{transform:rotate(180deg);}
+.rfd-settings-body{padding-top:.75rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:.875rem;}
+/* ── RFD countdown overlay ───────────────────────────────────────────── */
+#rfd-countdown-overlay{position:fixed;inset:0;z-index:300;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:1rem;}
+#rfd-countdown-overlay .rfd-cd-card{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;}
+.rfd-cd-phase{font-size:1.35rem;font-weight:600;color:var(--text);text-align:center;}
+.rfd-cd-num{font-family:'DM Mono',monospace;font-size:7rem;font-weight:300;color:var(--text);line-height:1;}
+.rfd-cd-footer{width:100%;max-width:480px;}
 </style>
 </head>
 <body>
@@ -570,70 +599,67 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
     <!-- Config -->
     <div id="rfd-section-config">
       <div class="card">
-        <div class="mode-toggle">
+        <!-- Laterality -->
+        <div class="mode-toggle" id="rfd-laterality-toggle">
           <button class="mode-btn active" data-laterality="single">Individual</button>
           <button class="mode-btn" data-laterality="comparison">Izquierda / Derecha</button>
         </div>
-        <div class="field-row">
-          <span class="field-label">Contracciones por lado</span>
-          <input id="rfd-reps-input" class="field-input" type="number" min="1" max="10" value="3">
+        <input id="rfd-label-input" class="text-input" type="text" placeholder="Movimiento (ej. Jalón)" autocomplete="off" style="margin-bottom:.875rem;">
+        <!-- Method -->
+        <div class="mode-toggle" id="rfd-method-toggle" style="margin-bottom:.875rem;">
+          <button class="mode-btn active" data-method="percent">20-80%</button>
+          <button class="mode-btn" data-method="interval">Intervalo de tiempo</button>
         </div>
-        <div class="field-row">
-          <span class="field-label">Umbral de detección (kg)</span>
-          <input id="rfd-threshold-input" class="field-input" type="number" min="0.5" max="20" step="0.5" value="2.0">
+        <!-- Interval settings -->
+        <div id="rfd-interval-cfg" hidden>
+          <div class="field-row" style="align-items:flex-start;margin-bottom:.75rem;">
+            <span class="field-label" style="padding-top:.5rem;">Ventana de tiempo</span>
+            <div class="rfd-picker-wrap">
+              <div class="rfd-picker-hl"></div>
+              <div class="rfd-picker" id="rfd-window-picker">
+                <div class="rfd-picker-spacer"></div>
+                <div class="rfd-picker-item active" data-val="100">100 ms</div>
+                <div class="rfd-picker-item" data-val="150">150 ms</div>
+                <div class="rfd-picker-item" data-val="200">200 ms</div>
+                <div class="rfd-picker-item" data-val="250">250 ms</div>
+                <div class="rfd-picker-item" data-val="300">300 ms</div>
+                <div class="rfd-picker-item" data-val="1000">1000 ms</div>
+                <div class="rfd-picker-spacer"></div>
+              </div>
+            </div>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Umbral de inicio (kg)</span>
+            <input id="rfd-threshold-input" class="field-input" type="number" min="0.1" max="20" step="0.1" value="0.50">
+          </div>
         </div>
-        <div class="field-row">
-          <span class="field-label">Cuenta regresiva (s)</span>
-          <input id="rfd-countdown-input" class="field-input" type="number" min="0" max="10" value="3">
+        <!-- IFE -->
+        <div style="border-top:1px solid var(--border);margin-top:.875rem;padding-top:.625rem;">
+          <label class="live-zone-toggle-btn" for="rfd-ife-check" style="padding:.35rem 0;border-radius:0;background:none;gap:.65rem;">
+            <input type="checkbox" id="rfd-ife-check" class="live-zone-check">
+            <span style="font-size:.85rem;flex:1;">Mostrar Índice de Fuerza Explosiva</span>
+            <button id="btn-rfd-ife-info" type="button" tabindex="-1" style="width:20px;height:20px;border-radius:50%;border:1px solid var(--border2);background:var(--surface3);color:var(--text3);font-size:.7rem;font-family:'DM Mono',monospace;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">?</button>
+          </label>
+          <div id="rfd-ife-cfg" hidden style="margin-top:.5rem;">
+            <button id="rfd-mvc-trigger" class="btn btn-secondary btn-full" style="justify-content:space-between;text-align:left;gap:.5rem;">
+              <span id="rfd-mvc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">Seleccionar MVC…</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
         </div>
       </div>
-      <div class="card">
-        <p class="info-block-title">Información de RFD</p>
-        <div class="rfd-charts">
-          <div class="rfd-chart-item">
-            <svg class="rfd-chart-svg" width="100" height="70" viewBox="0 0 100 70">
-              <line x1="10" y1="60" x2="90" y2="60" stroke="#232d45" stroke-width="1"/>
-              <line x1="10" y1="10" x2="10" y2="60" stroke="#232d45" stroke-width="1"/>
-              <line x1="10" y1="26" x2="90" y2="26" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
-              <line x1="10" y1="46" x2="90" y2="46" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
-              <text x="7" y="29" text-anchor="end" font-size="8" fill="#5a6e8a">80%</text>
-              <text x="7" y="49" text-anchor="end" font-size="8" fill="#5a6e8a">20%</text>
-              <path d="M 15 58 Q 32 54 48 38 Q 62 20 82 14" stroke="#fcd34d" stroke-width="2" fill="none" stroke-linecap="round"/>
-              <line x1="29" y1="46" x2="63" y2="26" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3,2"/>
-            </svg>
-            <span class="rfd-chart-label">RFD 20-80%</span>
-          </div>
-          <div class="rfd-chart-item">
-            <svg class="rfd-chart-svg" width="100" height="70" viewBox="0 0 100 70">
-              <line x1="10" y1="60" x2="90" y2="60" stroke="#232d45" stroke-width="1"/>
-              <line x1="10" y1="10" x2="10" y2="60" stroke="#232d45" stroke-width="1"/>
-              <path d="M 15 58 Q 32 54 48 38 Q 62 20 82 14" stroke="#fcd34d" stroke-width="2" fill="none" stroke-linecap="round"/>
-              <line x1="28" y1="58" x2="28" y2="10" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
-              <line x1="68" y1="58" x2="68" y2="10" stroke="#2d3a58" stroke-width="1" stroke-dasharray="3,3"/>
-              <line x1="28" y1="20" x2="68" y2="20" stroke="#e8edf5" stroke-width="1"/>
-              <text x="48" y="17" text-anchor="middle" font-size="8" fill="#8fa0bf">Time</text>
-              <text x="28" y="68" text-anchor="middle" font-size="7" fill="#5a6e8a">Onset</text>
-              <line x1="28" y1="55" x2="68" y2="25" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="3,2"/>
-            </svg>
-            <span class="rfd-chart-label">RFD Time-interval</span>
-          </div>
-        </div>
-        <p class="info-block-text">Rate of Force Development (RFD) es una medida de la fuerza explosiva: qué tan rápido el músculo desarrolla tensión. Se representa como la pendiente de la curva fuerza-tiempo.</p>
+      <div class="card" style="margin-top:0;">
+        <p class="info-block-title">Acerca del test RFD</p>
+        <p class="info-block-text">RFD mide la fuerza explosiva: qué tan rápido el músculo desarrolla tensión (pendiente de la curva fuerza-tiempo). La grabación dura <strong>5 s</strong>. Tara el sensor antes de comenzar y elimina toda holgura antes de la tracción.<br><br><strong>20-80%:</strong> pendiente entre el 20 % y 80 % de la carga máxima (defecto).<br><strong>Intervalo de tiempo:</strong> pendiente entre el cruce del umbral (t₀) y t₀ + ventana configurada.</p>
       </div>
       <button id="btn-start-rfd" class="btn btn-primary btn-full" style="margin-top:1rem;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-        Iniciar test
+        Medir
       </button>
     </div>
 
-    <!-- Countdown -->
-    <div id="rfd-section-countdown" hidden>
-      <div class="card countdown-card">
-        <p style="font-size:.78rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem;">Preparando</p>
-        <p id="rfd-countdown-num" class="countdown-num">3</p>
-        <p style="font-size:.85rem;color:var(--text2);margin-top:.75rem;">Prepárate para la contracción explosiva</p>
-      </div>
-    </div>
+    <!-- Countdown placeholder – real countdown uses #rfd-countdown-overlay -->
+    <div id="rfd-section-countdown" hidden></div>
 
     <!-- Measure -->
     <div id="rfd-section-measure" hidden>
@@ -644,24 +670,40 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
           <span class="live-force-unit">kg</span>
         </div>
         <canvas id="rfd-canvas" class="force-canvas"></canvas>
-      </div>
-      <div class="card">
-        <div class="card-title-row">
-          <span class="card-title">Contracciones</span>
-          <span id="rfd-reps-counter" style="font-family:'DM Mono',monospace;font-size:.82rem;color:var(--text3);">0 / 3</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 0 0;">
+          <span style="font-size:.78rem;color:var(--text3);">Grabando…</span>
+          <span id="rfd-rec-timer" style="font-family:'DM Mono',monospace;font-size:.9rem;color:var(--accent);">5 s</span>
         </div>
-        <ul id="rfd-reps-list" class="reps-list">
-          <li style="font-size:.78rem;color:var(--text3);padding:.2rem 0 .4rem;">Nº &nbsp;·&nbsp; Pico (kg) &nbsp;·&nbsp; RFD (kg/s) &nbsp;·&nbsp; T. al pico (ms)</li>
-        </ul>
       </div>
-      <button id="btn-stop-rfd" class="btn btn-danger btn-full">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-        Finalizar lado
-      </button>
     </div>
 
     <!-- Results -->
     <div id="rfd-section-results" hidden>
+      <!-- Chart of last recording -->
+      <div class="card" style="padding:.75rem;">
+        <canvas id="rfd-result-canvas" class="force-canvas"></canvas>
+      </div>
+      <!-- RFD values -->
+      <div class="card">
+        <div class="rfd-vals-row">
+          <div class="rfd-val-cell">
+            <span class="rfd-val-lbl" id="rfd-lbl-interval">RFD 100ms</span>
+            <span class="rfd-val-num" id="rfd-num-interval">—</span>
+            <span class="rfd-val-unit">kg/s</span>
+          </div>
+          <div class="rfd-val-cell">
+            <span class="rfd-val-lbl">RFD 2080</span>
+            <span class="rfd-val-num" id="rfd-num-percent">—</span>
+            <span class="rfd-val-unit">kg/s</span>
+          </div>
+        </div>
+        <!-- IFE result -->
+        <div id="rfd-ife-res" hidden style="border-top:1px solid var(--border);padding-top:.75rem;margin-top:.75rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem;">
+          <span style="font-size:.75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);">IFE</span>
+          <span id="rfd-ife-res-val" style="font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:300;color:var(--text);">0.00 %</span>
+        </div>
+      </div>
+      <!-- AI (comparison) -->
       <div id="rfd-ai-section" class="card" hidden>
         <p class="card-title">Índice de asimetría</p>
         <div id="rfd-ai-badge" class="ai-badge">
@@ -669,12 +711,58 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
           <span class="ai-formula">AI = (fuerte − débil) / fuerte × 100</span>
         </div>
       </div>
-      <div class="card">
-        <p class="card-title">Resultados del test</p>
-        <div id="rfd-results-content"></div>
+      <!-- Collapsible settings (chart overlay + IFE) -->
+      <div class="card" style="padding:.875rem 1.25rem;">
+        <button class="rfd-toggle-btn" id="rfd-settings-toggle">
+          Configuraciones
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="rfd-settings-panel" class="rfd-settings-body" hidden>
+          <div class="mode-toggle" id="rfd-res-method-toggle">
+            <button class="mode-btn active" data-method="percent">20-80%</button>
+            <button class="mode-btn" data-method="interval">Intervalo de tiempo</button>
+          </div>
+          <div id="rfd-res-interval-cfg" hidden>
+            <div class="field-row" style="align-items:flex-start;margin-bottom:.625rem;">
+              <span class="field-label" style="padding-top:.5rem;">Ventana</span>
+              <div class="rfd-picker-wrap">
+                <div class="rfd-picker-hl"></div>
+                <div class="rfd-picker" id="rfd-res-window-picker">
+                  <div class="rfd-picker-spacer"></div>
+                  <div class="rfd-picker-item active" data-val="100">100 ms</div>
+                  <div class="rfd-picker-item" data-val="150">150 ms</div>
+                  <div class="rfd-picker-item" data-val="200">200 ms</div>
+                  <div class="rfd-picker-item" data-val="250">250 ms</div>
+                  <div class="rfd-picker-item" data-val="300">300 ms</div>
+                  <div class="rfd-picker-item" data-val="1000">1000 ms</div>
+                  <div class="rfd-picker-spacer"></div>
+                </div>
+              </div>
+            </div>
+            <div class="field-row">
+              <span class="field-label">Umbral (kg)</span>
+              <input id="rfd-res-threshold" class="field-input" type="number" min="0.1" max="20" step="0.1" value="0.50">
+            </div>
+          </div>
+          <label class="live-zone-toggle-btn" for="rfd-res-ife-check" style="padding:.35rem 0;border-radius:0;background:none;">
+            <input type="checkbox" id="rfd-res-ife-check" class="live-zone-check">
+            <span style="font-size:.85rem;flex:1;">Índice de Fuerza Explosiva</span>
+            <button id="btn-rfd-res-ife-info" type="button" tabindex="-1" style="width:20px;height:20px;border-radius:50%;border:1px solid var(--border2);background:var(--surface3);color:var(--text3);font-size:.7rem;font-family:'DM Mono',monospace;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">?</button>
+          </label>
+          <div id="rfd-res-ife-mvc" hidden>
+            <button id="rfd-res-mvc-trigger" class="btn btn-secondary btn-full" style="justify-content:space-between;text-align:left;gap:.5rem;">
+              <span id="rfd-res-mvc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">Seleccionar MVC…</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
+          <button id="btn-rfd-medir" class="btn btn-primary btn-full">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            Medir
+          </button>
+        </div>
       </div>
-      <button id="btn-rfd-new-test" class="btn btn-secondary btn-full">Nuevo test</button>
-      <button id="btn-rfd-session" class="btn btn-primary btn-full">Ver sesión</button>
+      <button id="btn-rfd-new-test" class="btn btn-primary btn-full">Nueva medición para esta etiqueta</button>
+      <button id="btn-rfd-session" class="btn btn-secondary btn-full">Ver sesión</button>
     </div>
 
   </div>
@@ -888,6 +976,17 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
     </button>
   </div>
   <div id="mvc-sheet-list" class="mvc-sheet-list"></div>
+</div>
+
+<!-- ── RFD countdown overlay ────────────────────────────────────────────── -->
+<div id="rfd-countdown-overlay" style="display:none;">
+  <div class="rfd-cd-card">
+    <p id="rfd-cd-phase" class="rfd-cd-phase">La sesión empieza en</p>
+    <p id="rfd-cd-num"   class="rfd-cd-num">3</p>
+  </div>
+  <div class="rfd-cd-footer">
+    <button id="btn-rfd-cancel-cd" class="btn btn-primary btn-full" style="font-size:1.1rem;font-weight:700;padding:1.1rem 1.25rem;">Borrar</button>
+  </div>
 </div>
 
 <script src="lib/session.js"></script>

@@ -81,6 +81,27 @@ let _currentTest  = 'peak';
 const TEST_LABELS = { peak: 'Fuerza Pico', rfd: 'RFD', live: 'Datos en Vivo' };
 let _rfdCountdown = 3;
 
+// ── RFD new measurement state ─────────────────────────────────────────────────
+const RFD_RECORD_MS   = 5000;
+const RFD_WIN_OPTIONS = [100, 150, 200, 250, 300, 1000];
+let _rfdMethod        = 'percent';  // 'percent' | 'interval'
+let _rfdWindowMs      = 100;
+let _rfdIntervalThr   = 0.5;
+let _rfdIfeEnabled    = false;
+let _rfdMvcRef        = null;       // selected MVC result for IFE
+let _rfdClip          = [];         // {kg, t} for current side
+let _rfdLeftClip      = [];
+let _rfdRightClip     = [];
+let _rfdAutoStop      = null;       // setTimeout id for 5s auto-stop
+let _rfdRecTimer      = null;       // setInterval id for countdown display
+let _rfdResMethod     = 'percent';  // chart overlay method in results
+let _rfdResWindowMs   = 100;
+let _rfdResThreshold  = 0.5;
+let _rfdResIfeEnabled = false;
+let _rfdResMvcRef     = null;
+let _rfdLastPayload   = null;       // last saved result (single or comparison)
+let _mvcSheetCtx      = 'live';    // 'live' | 'rfd' | 'rfd-res'
+
 // ── Session ───────────────────────────────────────────────────────────────────
 const _sessionCh  = new BroadcastChannel('physiq-session');
 let _patient      = '';
@@ -95,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
   _checkBLESupport();
   _bindUI();
   _initDualSlider();
+  _initRfdPicker('rfd-window-picker', _rfdWindowMs, v => { _rfdWindowMs = v; });
   _loadSession();
   _registerSW();
 });
@@ -232,6 +254,8 @@ async function _stopMeasurement() {
   _measuring = false;
   document.querySelector('.app-header').classList.remove('measuring');
   clearTimeout(_debTimer);
+  if (_rfdAutoStop) { clearTimeout(_rfdAutoStop);  _rfdAutoStop = null; }
+  if (_rfdRecTimer) { clearInterval(_rfdRecTimer); _rfdRecTimer = null; }
   if (_cState === 'active' || _cState === 'debounce') _finalizeContraction();
   _cState = 'idle';
   _stopChartLoop();
@@ -249,6 +273,12 @@ function _onMeasureSample(kg) {
 
   if (_currentTest === 'peak') { _updateForceBar(kg); return; }
 
+  if (_currentTest === 'rfd') {
+    _rfdClip.push({ kg, t });
+    return;
+  }
+
+  // legacy contraction detection (not used by current test types)
   if (_cState === 'idle') {
     if (kg >= _thresholdKg) { _cState = 'active'; _cBuffer = [{ kg, t }]; }
   } else if (_cState === 'active') {
@@ -437,16 +467,30 @@ function _renderMvcSheetItems(query = '') {
 
   list.querySelectorAll('.mvc-item').forEach((el, i) => {
     el.addEventListener('click', () => {
-      _selectedPeakResult = peaks[i];
-      const kg = _getRefPeakKg(_selectedPeakResult);
+      const r   = peaks[i];
+      const kg  = _getRefPeakKg(r);
       const kgStr = kg != null ? ` — ${kg.toFixed(1)} kg` : '';
-      const lbl = document.getElementById('live-peak-trigger-label');
-      if (lbl) lbl.textContent = (_selectedPeakResult.label ?? 'MVC') + kgStr;
-      _sliderMinPct = 40;
-      _sliderMaxPct = 60;
-      const sliderSection = document.getElementById('live-slider-section');
-      if (sliderSection) sliderSection.hidden = false;
-      _updateDualSlider();
+      const name  = (r.label ?? 'MVC') + kgStr;
+
+      if (_mvcSheetCtx === 'rfd') {
+        _rfdMvcRef = r;
+        const lbl = document.getElementById('rfd-mvc-label');
+        if (lbl) lbl.textContent = name;
+      } else if (_mvcSheetCtx === 'rfd-res') {
+        _rfdResMvcRef = r;
+        const lbl = document.getElementById('rfd-res-mvc-label');
+        if (lbl) lbl.textContent = name;
+        _redrawResultChart();
+      } else {
+        _selectedPeakResult = r;
+        const lbl = document.getElementById('live-peak-trigger-label');
+        if (lbl) lbl.textContent = name;
+        _sliderMinPct = 40;
+        _sliderMaxPct = 60;
+        const sliderSection = document.getElementById('live-slider-section');
+        if (sliderSection) sliderSection.hidden = false;
+        _updateDualSlider();
+      }
       _closeMvcSheet();
     });
   });
@@ -568,14 +612,31 @@ function _initCanvas(id) {
 function _startChartLoop() {
   cancelAnimationFrame(_rafId);
   const id = _currentTest;
-  const tick = () => { _drawChart(`${id}-canvas`, _chartPoints, _measureStart); if (_measuring) _rafId = requestAnimationFrame(tick); };
+  const tick = () => {
+    if (_currentTest === 'rfd') {
+      _drawRfdChart('rfd-canvas', _rfdClip, {
+        showMethod: _rfdMethod,
+        threshold:  _rfdMethod === 'interval' ? _rfdIntervalThr : null,
+      });
+    } else {
+      _drawChart(`${id}-canvas`, _chartPoints, _measureStart);
+    }
+    if (_measuring) _rafId = requestAnimationFrame(tick);
+  };
   _rafId = requestAnimationFrame(tick);
 }
 
 function _stopChartLoop() {
   cancelAnimationFrame(_rafId);
   _rafId = null;
-  _drawChart(`${_currentTest}-canvas`, _chartPoints, _measureStart);
+  if (_currentTest === 'rfd') {
+    _drawRfdChart('rfd-canvas', _rfdClip, {
+      showMethod: _rfdMethod,
+      threshold:  _rfdMethod === 'interval' ? _rfdIntervalThr : null,
+    });
+  } else {
+    _drawChart(`${_currentTest}-canvas`, _chartPoints, _measureStart);
+  }
 }
 
 function _liveChartOpts() {
@@ -710,20 +771,287 @@ window.addEventListener('resize', () => {
   if (_liveMode) _initCanvas('force-canvas-live');
 });
 
-// ── Countdown ─────────────────────────────────────────────────────────────────
-function _runCountdown(seconds) {
+// ── RFD countdown (two-phase overlay) ────────────────────────────────────────
+function _runRfdCountdown() {
   return new Promise(resolve => {
-    if (seconds <= 0) { resolve(); return; }
-    _showTestSection('rfd', 'countdown');
-    const el = document.getElementById('rfd-countdown-num');
-    let n = seconds;
-    if (el) el.textContent = n;
+    const overlay  = document.getElementById('rfd-countdown-overlay');
+    const phaseEl  = document.getElementById('rfd-cd-phase');
+    const numEl    = document.getElementById('rfd-cd-num');
+    const cancelEl = document.getElementById('btn-rfd-cancel-cd');
+
+    let cancelled = false;
+    let ticks = 0;
+
+    const cancel = () => {
+      cancelled = true;
+      clearInterval(iv);
+      overlay.style.display = 'none';
+      _showTestSection('rfd', 'config');
+    };
+    cancelEl.addEventListener('click', cancel, { once: true });
+
+    const show = (phase, num) => {
+      if (phaseEl) phaseEl.textContent = phase;
+      if (numEl)   numEl.textContent   = num;
+    };
+
+    overlay.style.display = 'flex';
+    show('La sesión empieza en', '3');
+
     const iv = setInterval(() => {
-      n--;
-      if (n <= 0) { clearInterval(iv); resolve(); return; }
-      if (el) el.textContent = n;
+      if (cancelled) { clearInterval(iv); return; }
+      ticks++;
+      if      (ticks === 1) show('La sesión empieza en', '2');
+      else if (ticks === 2) show('La sesión empieza en', '1');
+      else if (ticks === 3) show('Tira adentro', '3');
+      else if (ticks === 4) show('Tira adentro', '2');
+      else if (ticks === 5) show('Tira adentro', '1');
+      else if (ticks === 6) {
+        clearInterval(iv);
+        show('Tira ahora', '');
+        cancelEl.removeEventListener('click', cancel);
+        setTimeout(() => {
+          if (!cancelled) { overlay.style.display = 'none'; resolve(); }
+        }, 700);
+      }
     }, 1000);
   });
+}
+
+// ── RFD recording (fixed 5 s window) ─────────────────────────────────────────
+function _startRfdRecording() {
+  _rfdClip      = [];
+  _chartPoints  = [];
+  _measuring    = true;
+  _measureStart = performance.now();
+
+  document.querySelector('.app-header').classList.add('measuring');
+  _initCanvas('rfd-canvas');
+  _startChartLoop();
+  _doSoftTare();
+
+  let remaining = 5;
+  const timerEl = document.getElementById('rfd-rec-timer');
+  if (timerEl) timerEl.textContent = `${remaining} s`;
+
+  _rfdRecTimer = setInterval(() => {
+    remaining--;
+    if (timerEl) timerEl.textContent = remaining > 0 ? `${remaining} s` : '0 s';
+  }, 1000);
+
+  _rfdAutoStop = setTimeout(_endRfdRecording, RFD_RECORD_MS);
+}
+
+async function _endRfdRecording() {
+  clearTimeout(_rfdAutoStop);
+  clearInterval(_rfdRecTimer);
+  _rfdAutoStop = null;
+  _rfdRecTimer = null;
+
+  if (!_measuring) return;
+  _measuring = false;
+  document.querySelector('.app-header').classList.remove('measuring');
+  _stopChartLoop();
+
+  if (_laterality === 'comparison' && _activeSide === 'left') {
+    _rfdLeftClip  = [..._rfdClip];
+    _rfdClip      = [];
+    _activeSide   = 'right';
+    _renderSideBanner('right');
+    // brief pause then countdown again for right side
+    await new Promise(r => setTimeout(r, 600));
+    await _runRfdCountdown();
+    _startRfdRecording();
+    return;
+  }
+
+  if (_laterality === 'comparison') _rfdRightClip = [..._rfdClip];
+
+  const payload = _buildResults();
+  _rfdLastPayload = payload;
+  _saveResults(payload);
+  _showTestSection('rfd', 'results');
+  _renderFinalResults(payload);
+}
+
+// ── RFD calculations ──────────────────────────────────────────────────────────
+function _calcRfd2080(buf) {
+  if (buf.length < 2) return { rfd: 0, peak: 0 };
+  const peak    = Math.max(...buf.map(s => s.kg));
+  if (peak <= 0) return { rfd: 0, peak };
+  const peakIdx = buf.findIndex(s => s.kg === peak);
+  const f20 = 0.20 * peak;
+  const f80 = 0.80 * peak;
+  let t20 = null, t80 = null;
+
+  for (let i = 0; i <= peakIdx; i++) {
+    if (t20 === null && buf[i].kg >= f20) {
+      t20 = i > 0
+        ? buf[i-1].t + (f20 - buf[i-1].kg) / (buf[i].kg - buf[i-1].kg) * (buf[i].t - buf[i-1].t)
+        : buf[i].t;
+    }
+    if (t80 === null && buf[i].kg >= f80) {
+      t80 = i > 0
+        ? buf[i-1].t + (f80 - buf[i-1].kg) / (buf[i].kg - buf[i-1].kg) * (buf[i].t - buf[i-1].t)
+        : buf[i].t;
+    }
+  }
+  if (t20 === null || t80 === null || t80 <= t20) return { rfd: 0, peak, t20, t80, f20, f80 };
+  return { rfd: (f80 - f20) / ((t80 - t20) / 1000), peak, t20, t80, f20, f80 };
+}
+
+function _calcRfdInterval(buf, threshold, windowMs) {
+  if (buf.length < 2) return { rfd: 0, t0: null };
+  let t0 = null, f0 = threshold;
+
+  for (let i = 0; i < buf.length; i++) {
+    if (buf[i].kg >= threshold) {
+      t0 = i > 0
+        ? buf[i-1].t + (threshold - buf[i-1].kg) / (buf[i].kg - buf[i-1].kg) * (buf[i].t - buf[i-1].t)
+        : buf[i].t;
+      break;
+    }
+  }
+  if (t0 === null) return { rfd: 0, t0: null };
+
+  const targetT = t0 + windowMs;
+  let ft = buf[buf.length - 1].kg;
+  for (let i = 0; i < buf.length; i++) {
+    if (buf[i].t >= targetT) {
+      ft = i > 0
+        ? buf[i-1].kg + (targetT - buf[i-1].t) / (buf[i].t - buf[i-1].t) * (buf[i].kg - buf[i-1].kg)
+        : buf[i].kg;
+      break;
+    }
+  }
+  return { rfd: Math.max(0, (ft - f0) / (windowMs / 1000)), t0, f0, targetT, ft };
+}
+
+// ── RFD chart (fixed 5-second window) ────────────────────────────────────────
+function _drawRfdChart(canvasId, points, opts = {}) {
+  const {
+    threshold    = null,   // draw threshold line (interval method)
+    peakKg       = null,   // draw 20/80% lines
+    t20 = null, t80 = null,
+    f20 = null, f80 = null,
+    t0  = null, targetT = null,
+    showMethod   = 'percent',
+  } = opts;
+
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  if (!canvas.width || !canvas.height) {
+    canvas.width  = canvas.clientWidth  * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+  }
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const mt = 8*dpr, mb = 28*dpr, ml = 42*dpr, mr = 8*dpr;
+  const cw = W - ml - mr, ch = H - mt - mb;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const maxKg = Math.max(peakKg ? peakKg * 1.2 : 5, threshold ? threshold * 2.5 : 0, 5, ...points.map(s => s.kg)) * 1.1;
+  const xOf = t  => ml + (t / RFD_RECORD_MS) * cw;
+  const yOf = kg => mt + ch * (1 - kg / maxKg);
+
+  const gridStep = maxKg > 50 ? 20 : maxKg > 25 ? 10 : maxKg > 10 ? 5 : 2;
+  ctx.font      = `${9*dpr}px "DM Mono", monospace`;
+  ctx.textAlign = 'right';
+  for (let kg = 0; kg <= maxKg; kg += gridStep) {
+    const y = yOf(kg);
+    ctx.strokeStyle = 'rgba(35,45,69,0.9)';
+    ctx.lineWidth   = dpr;
+    ctx.beginPath(); ctx.moveTo(ml, y); ctx.lineTo(ml + cw, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(90,110,138,0.85)';
+    ctx.fillText(kg, ml - 4*dpr, y + 3*dpr);
+  }
+
+  // X-axis labels (0s … 5s)
+  ctx.fillStyle = 'rgba(90,110,138,0.7)';
+  ctx.textAlign = 'center';
+  for (let s = 0; s <= 5; s++) {
+    ctx.fillText(`${s}`, xOf(s * 1000), mt + ch + 18*dpr);
+  }
+
+  // Overlay lines
+  if (showMethod === 'interval' && threshold !== null) {
+    ctx.strokeStyle = 'rgba(251,146,60,0.55)';
+    ctx.lineWidth   = 1.5*dpr;
+    ctx.setLineDash([5*dpr, 4*dpr]);
+    const yt = yOf(threshold);
+    ctx.beginPath(); ctx.moveTo(ml, yt); ctx.lineTo(ml + cw, yt); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(251,146,60,0.7)';
+    ctx.textAlign = 'left';
+    ctx.fillText('Umbral de inicio', ml + 4*dpr, yt - 4*dpr);
+
+    if (t0 !== null && targetT !== null) {
+      ctx.strokeStyle = 'rgba(56,217,169,0.6)';
+      ctx.lineWidth   = 1.5*dpr;
+      ctx.setLineDash([4*dpr, 3*dpr]);
+      const x0 = xOf(t0), x1 = xOf(Math.min(targetT, RFD_RECORD_MS));
+      ctx.beginPath(); ctx.moveTo(x0, mt); ctx.lineTo(x0, mt + ch); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1, mt); ctx.lineTo(x1, mt + ch); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  } else if (showMethod === 'percent' && f20 !== null && f80 !== null) {
+    [[f20, '20% del máximo'], [f80, '80% del máximo']].forEach(([fv, label]) => {
+      ctx.strokeStyle = 'rgba(251,146,60,0.55)';
+      ctx.lineWidth   = 1.5*dpr;
+      ctx.setLineDash([5*dpr, 4*dpr]);
+      const y = yOf(fv);
+      ctx.beginPath(); ctx.moveTo(ml, y); ctx.lineTo(ml + cw, y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(251,146,60,0.7)';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, ml + 4*dpr, y - 4*dpr);
+    });
+  }
+
+  // Max annotation
+  if (peakKg) {
+    ctx.fillStyle = 'rgba(56,217,169,0.85)';
+    ctx.textAlign = 'right';
+    ctx.fillText(`Max: ${peakKg.toFixed(1)} kg`, ml + cw - 4*dpr, mt + 14*dpr);
+  }
+
+  // Force curve
+  if (points.length < 2) return;
+  ctx.strokeStyle = '#e8edf5';
+  ctx.lineWidth   = 1.5*dpr;
+  ctx.lineJoin    = 'round';
+  ctx.beginPath();
+  points.forEach((s, i) => {
+    const x = xOf(s.t), y = yOf(s.kg);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
+
+// ── Scroll picker init ────────────────────────────────────────────────────────
+function _initRfdPicker(pickerId, initialVal, onChange) {
+  const picker = document.getElementById(pickerId);
+  if (!picker) return;
+  const ITEM_H = 30;
+  const idx0 = RFD_WIN_OPTIONS.indexOf(initialVal);
+  if (idx0 >= 0) picker.scrollTop = idx0 * ITEM_H;
+
+  const updateActive = () => {
+    const idx = Math.round(picker.scrollTop / ITEM_H);
+    picker.querySelectorAll('.rfd-picker-item').forEach((el, i) => {
+      el.classList.toggle('active', i === idx);
+    });
+    const val = RFD_WIN_OPTIONS[Math.max(0, Math.min(RFD_WIN_OPTIONS.length - 1, idx))];
+    onChange(val);
+  };
+
+  picker.addEventListener('scroll', updateActive, { passive: true });
+  picker.querySelectorAll('.rfd-picker-item').forEach((el, i) => {
+    el.addEventListener('click', () => picker.scrollTo({ top: i * ITEM_H, behavior: 'smooth' }));
+  });
+  updateActive();
 }
 
 // ── Comparison & asymmetry ────────────────────────────────────────────────────
@@ -741,7 +1069,8 @@ function _genLabel() {
                    : '';
   const sameType   = _savedResults.filter(r => r.testType === _currentTest && r.laterality === _laterality).length;
   const autoLabel  = sameType > 0 ? `${typeLabel}${latLabel} · ${sameType + 1}` : `${typeLabel}${latLabel}`;
-  const movement   = _currentTest === 'peak' ? (document.getElementById('peak-label-input')?.value.trim() ?? '') : '';
+  const movementId = _currentTest === 'peak' ? 'peak-label-input' : _currentTest === 'rfd' ? 'rfd-label-input' : null;
+  const movement   = movementId ? (document.getElementById(movementId)?.value.trim() ?? '') : '';
   return movement ? `${movement} · ${autoLabel}` : autoLabel;
 }
 
@@ -760,6 +1089,37 @@ function _buildResults() {
       return { label: _genLabel(), testType: 'peak', laterality: 'comparison', sides: { left: { peak: lPeak }, right: { peak: rPeak } }, lsi, asymmetryIndex: lsi !== null ? _calcAI(lPeak, rPeak) : null, timestamp: new Date().toISOString() };
     }
     return { label: _genLabel(), testType: 'peak', laterality: _laterality, side: _activeSide, peak: _peakDisplayKg > 0 ? _peakDisplayKg : null, timestamp: new Date().toISOString() };
+  }
+
+  if (_currentTest === 'rfd') {
+    const _rfdSide = (clip) => {
+      const p2080 = _calcRfd2080(clip);
+      const pInt  = _calcRfdInterval(clip, _rfdIntervalThr, _rfdWindowMs);
+      const mvcKg = _rfdMvcRef ? _getRefPeakKg(_rfdMvcRef) : null;
+      const ife   = (_rfdIfeEnabled && mvcKg && p2080.peak > 0)
+        ? (p2080.rfd / mvcKg) * 100 : null;
+      return { peak: p2080.peak, rfd2080: p2080.rfd, rfdTime: pInt.rfd, ife };
+    };
+
+    if (_laterality === 'comparison') {
+      const l = _rfdSide(_rfdLeftClip);
+      const r = _rfdSide(_rfdRightClip);
+      const ai = (l.peak > 0 && r.peak > 0) ? _calcAI(l.rfd2080, r.rfd2080) : null;
+      return {
+        label: _genLabel(), testType: 'rfd', laterality: 'comparison',
+        rfdWindowMs: _rfdWindowMs, rfdThreshold: _rfdIntervalThr,
+        sides: { left: { ...l, clip: _rfdLeftClip }, right: { ...r, clip: _rfdRightClip } },
+        asymmetryIndex: ai, timestamp: new Date().toISOString(),
+      };
+    }
+    const s = _rfdSide(_rfdClip);
+    return {
+      label: _genLabel(), testType: 'rfd', laterality: _laterality, side: _activeSide,
+      peak: s.peak, rfd2080: s.rfd2080, rfdTime: s.rfdTime,
+      rfdWindowMs: _rfdWindowMs, rfdThreshold: _rfdIntervalThr,
+      ife: s.ife, clip: _rfdClip,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   if (_laterality === 'comparison') {
@@ -936,33 +1296,55 @@ function _bindUI() {
       _laterality = btn.dataset.laterality;
     });
   });
-  // Mode toggles — rfd
-  document.querySelectorAll('#screen-rfd .mode-btn').forEach(btn => {
+  // Mode toggles — rfd laterality
+  document.querySelectorAll('#rfd-laterality-toggle .mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('#screen-rfd .mode-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#rfd-laterality-toggle .mode-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       _laterality = btn.dataset.laterality;
     });
   });
 
-  // RFD config inputs
-  document.getElementById('rfd-reps-input').addEventListener('change', e => {
-    _repsTarget = Math.max(1, Math.min(10, parseInt(e.target.value) || 3));
-    e.target.value = _repsTarget;
+  // RFD method toggle (config)
+  document.querySelectorAll('#rfd-method-toggle .mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#rfd-method-toggle .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _rfdMethod = btn.dataset.method;
+      const cfg = document.getElementById('rfd-interval-cfg');
+      if (cfg) cfg.hidden = _rfdMethod !== 'interval';
+    });
   });
-  document.getElementById('rfd-threshold-input').addEventListener('change', e => {
-    _thresholdKg = Math.max(0.5, Math.min(20, parseFloat(e.target.value) || 2.0));
-    e.target.value = _thresholdKg.toFixed(1);
+
+  // RFD threshold input (config)
+  document.getElementById('rfd-threshold-input')?.addEventListener('change', e => {
+    _rfdIntervalThr = Math.max(0.1, Math.min(20, parseFloat(e.target.value) || 0.5));
+    e.target.value = _rfdIntervalThr.toFixed(2);
   });
-  document.getElementById('rfd-countdown-input').addEventListener('change', e => {
-    _rfdCountdown = Math.max(0, Math.min(10, parseInt(e.target.value) || 0));
-    e.target.value = _rfdCountdown;
+
+  // RFD IFE checkbox (config)
+  document.getElementById('rfd-ife-check')?.addEventListener('change', function () {
+    _rfdIfeEnabled = this.checked;
+    const cfg = document.getElementById('rfd-ife-cfg');
+    if (cfg) cfg.hidden = !_rfdIfeEnabled;
+  });
+
+  // RFD MVC selector (config)
+  document.getElementById('rfd-mvc-trigger')?.addEventListener('click', () => {
+    _mvcSheetCtx = 'rfd';
+    _openMvcSheet();
+  });
+
+  // IFE info button (config)
+  document.getElementById('btn-rfd-ife-info')?.addEventListener('click', () => {
+    _showToast('IFE = RFD / MVC × 100 — indica qué porcentaje de la fuerza máxima se desarrolla por segundo.');
   });
 
   // Start buttons
   document.getElementById('btn-start-peak').addEventListener('click', _startTest);
   document.getElementById('btn-start-rfd').addEventListener('click', async () => {
-    await _runCountdown(_rfdCountdown);
+    _showTestSection('rfd', 'measure');
+    await _runRfdCountdown();
     _startTest();
   });
 
@@ -978,7 +1360,7 @@ function _bindUI() {
   document.querySelectorAll('.peak-side-btn').forEach(btn => {
     btn.addEventListener('click', () => _switchPeakSide(btn.dataset.side));
   });
-  document.getElementById('btn-stop-rfd').addEventListener('click', _endCurrentSide);
+  // btn-stop-rfd no longer exists (RFD auto-stops after 5 s)
   document.getElementById('btn-start-live').addEventListener('click', () => {
     if (!_device?.gatt?.connected) {
       _updateBLEDialog();
@@ -1057,9 +1439,60 @@ function _bindUI() {
     if (titleEl) titleEl.textContent = 'Resultados del test';
     _openTest('peak');
   });
-  document.getElementById('btn-rfd-new-test').addEventListener('click', () => {
+  // RFD results — "Nueva medición" and "Medir" inside panel both restart
+  const _rfdStartNew = async () => {
     if (!_device?.gatt?.connected) { _updateBLEDialog(); document.getElementById('dialog-ble').showModal(); return; }
-    _showTestSection('rfd', 'config');
+    _showTestSection('rfd', 'measure');
+    await _runRfdCountdown();
+    _startTest();
+  };
+  document.getElementById('btn-rfd-new-test')?.addEventListener('click', _rfdStartNew);
+  document.getElementById('btn-rfd-medir')?.addEventListener('click',    _rfdStartNew);
+
+  // RFD settings toggle (results panel)
+  document.getElementById('rfd-settings-toggle')?.addEventListener('click', function () {
+    const panel = document.getElementById('rfd-settings-panel');
+    if (!panel) return;
+    panel.hidden = !panel.hidden;
+    this.classList.toggle('open', !panel.hidden);
+  });
+
+  // RFD result method toggle
+  document.querySelectorAll('#rfd-res-method-toggle .mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#rfd-res-method-toggle .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _rfdResMethod = btn.dataset.method;
+      const cfg = document.getElementById('rfd-res-interval-cfg');
+      if (cfg) cfg.hidden = _rfdResMethod !== 'interval';
+      _redrawResultChart();
+    });
+  });
+
+  // RFD result threshold
+  document.getElementById('rfd-res-threshold')?.addEventListener('change', e => {
+    _rfdResThreshold = Math.max(0.1, Math.min(20, parseFloat(e.target.value) || 0.5));
+    e.target.value = _rfdResThreshold.toFixed(2);
+    _redrawResultChart();
+  });
+
+  // RFD result IFE checkbox
+  document.getElementById('rfd-res-ife-check')?.addEventListener('change', function () {
+    _rfdResIfeEnabled = this.checked;
+    const mvc = document.getElementById('rfd-res-ife-mvc');
+    if (mvc) mvc.hidden = !_rfdResIfeEnabled;
+    _redrawResultChart();
+  });
+
+  // RFD result MVC selector
+  document.getElementById('rfd-res-mvc-trigger')?.addEventListener('click', () => {
+    _mvcSheetCtx = 'rfd-res';
+    _openMvcSheet();
+  });
+
+  // IFE info button (results)
+  document.getElementById('btn-rfd-res-ife-info')?.addEventListener('click', () => {
+    _showToast('IFE = RFD / MVC × 100 — indica qué porcentaje de la fuerza máxima se desarrolla por segundo.');
   });
   document.getElementById('btn-peak-session').addEventListener('click', () => {
     _measurementsType = null;
@@ -1163,8 +1596,16 @@ function _openTest(test) {
     _showScreen('screen-peak');
     _showTestSection('peak', 'config');
   } else if (test === 'rfd') {
-    const active = document.querySelector('#screen-rfd .mode-btn.active');
+    const active = document.querySelector('#rfd-laterality-toggle .mode-btn.active');
     _laterality = active?.dataset.laterality ?? 'single';
+    // Sync method toggle + interval settings visibility
+    document.querySelectorAll('#rfd-method-toggle .mode-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.method === _rfdMethod);
+    });
+    const iCfg = document.getElementById('rfd-interval-cfg');
+    if (iCfg) iCfg.hidden = _rfdMethod !== 'interval';
+    _initRfdPicker('rfd-window-picker', _rfdWindowMs, v => { _rfdWindowMs = v; });
+    _rfdLastPayload = null;
     _showScreen('screen-rfd');
     _showTestSection('rfd', 'config');
   } else if (test === 'live') {
@@ -1215,11 +1656,21 @@ function _startTest() {
         b.classList.toggle('active', b.dataset.side === 'left')
       );
     }
-  } else {
-    _renderSideBanner(_activeSide);
-    _updateRepsCounter();
+    startMeasurement();
+    return;
   }
 
+  if (_currentTest === 'rfd') {
+    _rfdClip      = [];
+    _rfdLeftClip  = [];
+    _rfdRightClip = [];
+    _renderSideBanner(_activeSide);
+    _startRfdRecording();
+    return;
+  }
+
+  _renderSideBanner(_activeSide);
+  _updateRepsCounter();
   startMeasurement();
 }
 
@@ -1382,7 +1833,7 @@ const active = pct >= 66 ? 3 : pct >= 33 ? 2 : 1;
   if (svg) {
     svg.querySelector('rect:first-child')?.setAttribute('stroke', color);
   }
-  if (pctEl) pctEl.style.color = color;
+  // pctEl intentionally unused (no battery % text element)
 }
 
 function _renderLiveReset() {
@@ -1434,6 +1885,7 @@ function _renderSideBanner(side) {
 
 function _renderFinalResults(payload) {
   if (payload.testType === 'peak') { _renderPeakResults(payload); return; }
+  if (payload.testType === 'rfd')  { _renderRfdResults(payload);  return; }
 
   const content = document.getElementById(`${_currentTest}-results-content`);
   if (!content) return;
@@ -1455,6 +1907,118 @@ function _renderFinalResults(payload) {
   } else {
     if (aiSection) aiSection.hidden = true;
   }
+}
+
+function _renderRfdResults(payload) {
+  const isComp = payload.laterality === 'comparison';
+
+  // Pick which clip/values to display (first side or single)
+  const clip    = isComp ? (payload.sides?.left?.clip ?? []) : (payload.clip ?? []);
+  const rfd2080 = isComp ? (payload.sides?.left?.rfd2080 ?? 0) : (payload.rfd2080 ?? 0);
+  const rfdTime = isComp ? (payload.sides?.left?.rfdTime  ?? 0) : (payload.rfdTime  ?? 0);
+  const peakKg  = isComp ? (payload.sides?.left?.peak ?? 0)    : (payload.peak ?? 0);
+  const ife     = isComp ? (payload.sides?.left?.ife   ?? null) : (payload.ife   ?? null);
+  const winMs   = payload.rfdWindowMs ?? _rfdWindowMs;
+
+  // Numeric values
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('rfd-lbl-interval', `RFD ${winMs}ms`);
+  set('rfd-num-interval', rfdTime > 0 ? rfdTime.toFixed(1) : '—');
+  set('rfd-num-percent',  rfd2080 > 0 ? rfd2080.toFixed(1) : '—');
+
+  // IFE
+  const ifeRes = document.getElementById('rfd-ife-res');
+  if (ife !== null && ifeRes) {
+    set('rfd-ife-res-val', ife.toFixed(2) + ' %');
+    ifeRes.hidden = false;
+  } else if (ifeRes) { ifeRes.hidden = true; }
+
+  // AI (comparison)
+  const aiSection = document.getElementById('rfd-ai-section');
+  if (isComp && payload.asymmetryIndex !== null && payload.asymmetryIndex !== undefined) {
+    const ai = payload.asymmetryIndex;
+    set('rfd-ai-value', ai.toFixed(1) + ' %');
+    document.getElementById('rfd-ai-badge').dataset.level = ai < 10 ? 'green' : ai < 20 ? 'yellow' : 'red';
+    if (aiSection) aiSection.hidden = false;
+  } else {
+    if (aiSection) aiSection.hidden = true;
+  }
+
+  // Draw result chart with 20-80% overlay by default
+  const rc = document.getElementById('rfd-result-canvas');
+  if (rc) {
+    rc.width  = rc.clientWidth  * (window.devicePixelRatio || 1);
+    rc.height = rc.clientHeight * (window.devicePixelRatio || 1);
+    const p2080 = _calcRfd2080(clip);
+    _drawRfdChart('rfd-result-canvas', clip, {
+      showMethod: _rfdResMethod,
+      threshold:  _rfdIntervalThr,
+      peakKg,
+      t20: p2080.t20, t80: p2080.t80, f20: p2080.f20, f80: p2080.f80,
+      t0:  _calcRfdInterval(clip, _rfdIntervalThr, winMs).t0,
+      targetT: _calcRfdInterval(clip, _rfdIntervalThr, winMs).targetT,
+    });
+  }
+
+  // Sync results settings panel to config values + init pickers
+  _rfdResMethod    = _rfdMethod;
+  _rfdResWindowMs  = _rfdWindowMs;
+  _rfdResThreshold = _rfdIntervalThr;
+  _rfdResIfeEnabled = _rfdIfeEnabled;
+  _rfdResMvcRef    = _rfdMvcRef;
+  _initRfdPicker('rfd-res-window-picker', _rfdResWindowMs, v => { _rfdResWindowMs = v; _redrawResultChart(); });
+  _syncResSettingsPanel();
+}
+
+function _syncResSettingsPanel() {
+  // Sync method toggle
+  document.querySelectorAll('#rfd-res-method-toggle .mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.method === _rfdResMethod);
+  });
+  const resIntervalCfg = document.getElementById('rfd-res-interval-cfg');
+  if (resIntervalCfg) resIntervalCfg.hidden = _rfdResMethod !== 'interval';
+
+  // Sync IFE checkbox
+  const ifeCheck = document.getElementById('rfd-res-ife-check');
+  if (ifeCheck) ifeCheck.checked = _rfdResIfeEnabled;
+  const ifeMvc = document.getElementById('rfd-res-ife-mvc');
+  if (ifeMvc) ifeMvc.hidden = !_rfdResIfeEnabled;
+}
+
+function _redrawResultChart() {
+  const payload = _rfdLastPayload;
+  if (!payload || payload.testType !== 'rfd') return;
+  const isComp = payload.laterality === 'comparison';
+  const clip   = isComp ? (payload.sides?.left?.clip ?? []) : (payload.clip ?? []);
+  const peakKg = isComp ? (payload.sides?.left?.peak ?? 0)  : (payload.peak ?? 0);
+  const winMs  = _rfdResWindowMs;
+
+  const rc = document.getElementById('rfd-result-canvas');
+  if (!rc) return;
+  if (!rc.width) { rc.width = rc.clientWidth * (window.devicePixelRatio||1); rc.height = rc.clientHeight * (window.devicePixelRatio||1); }
+  const p2080 = _calcRfd2080(clip);
+  const pInt  = _calcRfdInterval(clip, _rfdResThreshold, winMs);
+  _drawRfdChart('rfd-result-canvas', clip, {
+    showMethod: _rfdResMethod,
+    threshold:  _rfdResThreshold,
+    peakKg,
+    t20: p2080.t20, t80: p2080.t80, f20: p2080.f20, f80: p2080.f80,
+    t0: pInt.t0, targetT: pInt.targetT,
+  });
+
+  // Update interval RFD label + value
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('rfd-lbl-interval', `RFD ${winMs}ms`);
+  const rfdTimeNew = _calcRfdInterval(clip, _rfdResThreshold, winMs).rfd;
+  set('rfd-num-interval', rfdTimeNew > 0 ? rfdTimeNew.toFixed(1) : '—');
+
+  // IFE recalc
+  const mvcKg = _rfdResMvcRef ? _getRefPeakKg(_rfdResMvcRef) : null;
+  const rfd2080 = p2080.rfd;
+  const ifeNew = (_rfdResIfeEnabled && mvcKg && rfd2080 > 0) ? (rfd2080 / mvcKg) * 100 : null;
+  const ifeRes = document.getElementById('rfd-ife-res');
+  if (ifeNew !== null && ifeRes) { set('rfd-ife-res-val', ifeNew.toFixed(2) + ' %'); ifeRes.hidden = false; }
+  else if (ifeRes) { ifeRes.hidden = true; }
 }
 
 function _renderPeakResults(payload) {
@@ -1621,15 +2185,18 @@ function _copyForceToClipboard() {
 
   if (rfdResults.length) {
     const lines = rfdResults.map(r => {
+      const win = r.rfdWindowMs ?? 100;
       if (r.sides) {
-        const l = r.sides.left?.rfd?.toFixed(0)  ?? '—';
-        const d = r.sides.right?.rfd?.toFixed(0) ?? '—';
-        let line = `  ${r.label}: Izq ${l} N/s | Der ${d} N/s`;
+        const l2080 = r.sides.left?.rfd2080?.toFixed(1)  ?? '—';
+        const r2080 = r.sides.right?.rfd2080?.toFixed(1) ?? '—';
+        const lTime = r.sides.left?.rfdTime?.toFixed(1)  ?? '—';
+        const rTime = r.sides.right?.rfdTime?.toFixed(1) ?? '—';
+        let line = `  ${r.label}: Izq 2080=${l2080} ${win}ms=${lTime} | Der 2080=${r2080} ${win}ms=${rTime} kg/s`;
         if (r.asymmetryIndex != null) line += ` | AI ${r.asymmetryIndex.toFixed(1)} %`;
         return line;
       }
-      let line = `  ${r.label}: ${r.rfd?.toFixed(0) ?? '—'} N/s`;
-      if (r.peak != null) line += ` | Pico ${r.peak.toFixed(1)} kg`;
+      let line = `  ${r.label}: 2080=${r.rfd2080?.toFixed(1) ?? '—'} ${win}ms=${r.rfdTime?.toFixed(1) ?? '—'} kg/s | Pico ${r.peak?.toFixed(1) ?? '—'} kg`;
+      if (r.ife != null) line += ` | IFE ${r.ife.toFixed(2)} %`;
       return line;
     });
     sections.push(`RFD:\n${lines.join('\n')}`);
@@ -1648,6 +2215,16 @@ function _copyForceToClipboard() {
 
   const text = `MEDICIÓN PhysiQ-Force${patient}\nFecha: ${date}\n\n${sections.join('\n\n')}`;
   navigator.clipboard.writeText(text).then(() => _showCopyFeedback());
+}
+
+function _showToast(msg, durationMs = 3500) {
+  document.getElementById('_toast')?.remove();
+  const el = document.createElement('div');
+  el.id = '_toast';
+  el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-size:.8rem;font-family:\'Outfit\',sans-serif;padding:10px 18px;border-radius:8px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.4);max-width:320px;text-align:center;line-height:1.4;';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), durationMs);
 }
 
 function _showCopyFeedback() {
@@ -1701,6 +2278,18 @@ function _renderMeasurementsList(type = null) {
       if (m.avg      != null) parts.push(`Media: ${m.avg.toFixed(1)} kg`);
       if (m.duration != null) parts.push(`${m.duration}s`);
       valStr = parts.join(' · ') || '—';
+    } else if (m.testType === 'rfd' && m.laterality === 'comparison') {
+      const l2 = m.sides?.left?.rfd2080;
+      const r2 = m.sides?.right?.rfd2080;
+      const parts = [];
+      if (l2 != null) parts.push(`I: ${l2.toFixed(1)} kg/s`);
+      if (r2 != null) parts.push(`D: ${r2.toFixed(1)} kg/s`);
+      valStr = parts.join(' · ');
+    } else if (m.testType === 'rfd') {
+      const sideLabel = m.side === 'left' ? 'Izq · ' : m.side === 'right' ? 'Der · ' : '';
+      const v2080 = m.rfd2080 != null ? `${sideLabel}2080=${m.rfd2080.toFixed(1)} kg/s` : '—';
+      const vTime = m.rfdTime != null ? ` · ${m.rfdWindowMs ?? '?'}ms=${m.rfdTime.toFixed(1)} kg/s` : '';
+      valStr = v2080 + vTime;
     } else if (m.laterality === 'comparison') {
       const l = m.sides?.left?.peak;
       const r = m.sides?.right?.peak;
