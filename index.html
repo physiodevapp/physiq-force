@@ -307,9 +307,9 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 .mvc-backdrop.open{opacity:1;pointer-events:auto;}
 .mvc-sheet{position:fixed;left:0;right:0;bottom:0;z-index:401;background:var(--surface);border-radius:20px 20px 0 0;border-top:1px solid var(--border2);height:65vh;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,1,.23,1);}
 .mvc-sheet.open{transform:translateY(0);}
-.mvc-sheet-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:.75rem auto .5rem;flex-shrink:0;}
+.mvc-sheet-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:.75rem auto .5rem;flex-shrink:0;touch-action:none;}
 .mvc-sheet-header{padding:0 1rem .5rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
-.mvc-sheet-title{font-size:.95rem;font-weight:600;}
+.mvc-sheet-title{font-size:.95rem;font-weight:600;touch-action:none;}
 .mvc-sheet-search{margin:0 1rem .5rem;position:relative;flex-shrink:0;}
 .mvc-search-icon{position:absolute;left:.65rem;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;}
 .mvc-search-input{width:100%;padding:.5rem .75rem .5rem 2.25rem;border-radius:10px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:.88rem;font-family:'Outfit',sans-serif;outline:none;transition:border-color .2s;box-sizing:border-box;}
@@ -320,7 +320,7 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 .mvc-sort-btn{flex-shrink:0;display:flex;align-items:center;gap:4px;padding:.3rem .75rem;border-radius:20px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:.78rem;font-family:'Outfit',sans-serif;cursor:pointer;transition:all .15s;}
 .mvc-sort-btn.active{background:var(--accent);border-color:var(--accent);color:#0a0d12;}
 .mvc-sort-arrow{transition:transform .2s ease;flex-shrink:0;}
-.mvc-sheet-list{overflow-y:auto;flex:1;padding:0 .75rem .75rem;}
+.mvc-sheet-list{overflow-y:auto;flex:1;padding:0 .75rem .75rem;overscroll-behavior:contain;}
 .mvc-item{padding:.65rem .75rem;border-radius:10px;cursor:pointer;transition:background .12s;border:1px solid transparent;}
 .mvc-item+.mvc-item{margin-top:.25rem;}
 .mvc-item:active{background:var(--surface2);}
