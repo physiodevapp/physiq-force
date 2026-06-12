@@ -1344,9 +1344,7 @@ function _bindUI() {
   });
 
   // IFE info button (config)
-  document.getElementById('btn-rfd-ife-info')?.addEventListener('click', () => {
-    _showToast('IFE = RFD / MVC × 100 — indica qué porcentaje de la fuerza máxima se desarrolla por segundo.');
-  });
+  document.getElementById('btn-rfd-ife-info')?.addEventListener('click', e => _showIFEInfo(e));
 
   // Start buttons
   document.getElementById('btn-start-peak').addEventListener('click', () => {
@@ -1503,9 +1501,7 @@ function _bindUI() {
   });
 
   // IFE info button (results)
-  document.getElementById('btn-rfd-res-ife-info')?.addEventListener('click', () => {
-    _showToast('IFE = RFD / MVC × 100 — indica qué porcentaje de la fuerza máxima se desarrolla por segundo.');
-  });
+  document.getElementById('btn-rfd-res-ife-info')?.addEventListener('click', e => _showIFEInfo(e));
   document.getElementById('btn-peak-session').addEventListener('click', () => {
     _measurementsType = null;
     _setNewMeasurementBtn(null);
@@ -2239,6 +2235,31 @@ function _copyForceToClipboard() {
   navigator.clipboard.writeText(text).then(() => _showCopyFeedback());
 }
 
+function _showIFEInfo(e) {
+  document.getElementById('_ife-tip')?.remove();
+  const msg = 'IFE = RFD / MVC × 100 — indica qué porcentaje de la fuerza máxima se desarrolla por segundo.';
+  const tip = document.createElement('div');
+  tip.id = '_ife-tip';
+  tip.textContent = msg;
+  const anchorX = e.clientX || (e.currentTarget.getBoundingClientRect().left + e.currentTarget.offsetWidth / 2);
+  const anchorY = e.clientY || e.currentTarget.getBoundingClientRect().top;
+  tip.style.cssText = `position:fixed;left:${anchorX}px;top:${anchorY}px;transform:translate(-50%,calc(-100% - 10px));background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-size:.78rem;font-family:'Outfit',sans-serif;padding:9px 14px;border-radius:8px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.4);max-width:260px;text-align:center;line-height:1.5;pointer-events:none;`;
+  document.body.appendChild(tip);
+  requestAnimationFrame(() => {
+    const r = tip.getBoundingClientRect();
+    let left = anchorX;
+    if (r.left < 8) left += 8 - r.left;
+    if (r.right > window.innerWidth - 8) left -= r.right - window.innerWidth + 8;
+    tip.style.left = left + 'px';
+    if (r.top < 8) { tip.style.top = (anchorY + 14) + 'px'; tip.style.transform = 'translateX(-50%)'; }
+  });
+  setTimeout(() => tip.remove(), 3500);
+  setTimeout(() => {
+    const dismiss = () => { tip.remove(); document.removeEventListener('pointerdown', dismiss); };
+    document.addEventListener('pointerdown', dismiss);
+  }, 50);
+}
+
 function _showToast(msg, durationMs = 3500) {
   document.getElementById('_toast')?.remove();
   const el = document.createElement('div');
@@ -2374,3 +2395,67 @@ function _registerSW() {
   if ('serviceWorker' in navigator)
     navigator.serviceWorker.register('./sw.js', { scope: './' });
 }
+
+// ========= SWIPE-TO-DISMISS BOTTOM SHEET =========
+(function () {
+  function initSwipe(sheet, closeFn) {
+    let startY = 0, startTime = 0, dragging = false, delta = 0, snapTimer = null;
+    const EASE = 'transform 0.3s cubic-bezier(.32,1,.23,1)';
+
+    function isHeaderTouch(target) {
+      return ['.mvc-sheet-handle', '.mvc-sheet-title']
+        .map(s => sheet.querySelector(s))
+        .some(el => el && el.contains(target));
+    }
+
+    sheet.addEventListener('touchstart', e => {
+      if (!isHeaderTouch(e.target)) return;
+      startY = e.touches[0].clientY;
+      startTime = Date.now();
+      delta = 0;
+      dragging = true;
+      clearTimeout(snapTimer);
+      sheet.style.transition = 'none';
+    }, { passive: true });
+
+    sheet.addEventListener('touchmove', e => {
+      if (!dragging) return;
+      delta = Math.max(0, e.touches[0].clientY - startY);
+      sheet.style.transform = delta > 0 ? `translateY(${delta}px)` : 'translateY(0)';
+    }, { passive: true });
+
+    function onRelease() {
+      if (!dragging) return;
+      dragging = false;
+      const velocity = delta / (Date.now() - startTime);
+      if (delta > 80 || velocity > 0.3) {
+        sheet.style.transition = EASE;
+        sheet.style.transform = 'translateY(110%)';
+        setTimeout(() => {
+          sheet.style.transition = 'none';
+          closeFn();
+          sheet.style.transform = '';
+          sheet.style.transition = '';
+        }, 300);
+      } else {
+        sheet.style.transition = EASE;
+        sheet.style.transform = 'translateY(0)';
+        snapTimer = setTimeout(() => {
+          sheet.style.transform = '';
+          sheet.style.transition = '';
+        }, 310);
+      }
+    }
+
+    sheet.addEventListener('touchend', onRelease, { passive: true });
+    sheet.addEventListener('touchcancel', () => {
+      if (!dragging) return;
+      dragging = false;
+      sheet.style.transform = '';
+      sheet.style.transition = '';
+    }, { passive: true });
+  }
+
+  const sheet = document.getElementById('mvc-sheet');
+  if (sheet) initSwipe(sheet, _closeMvcSheet);
+}());
