@@ -130,7 +130,7 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .config-nav{display:flex;align-items:center;gap:.6rem;}
 .btn-back{display:flex;align-items:center;gap:.2rem;padding:.35rem .65rem .35rem .4rem;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-family:inherit;font-size:.82rem;color:var(--text2);transition:all .15s;}
 .btn-back:hover{border-color:var(--border2);color:var(--text);}
-.config-title{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);}
+.config-title{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-left:auto;}
 
 /* ── Mode toggle ─────────────────────────────────────────────────────── */
 .mode-toggle{display:grid;grid-template-columns:1fr 1fr;background:var(--surface2);border-radius:10px;border:1px solid var(--border);padding:3px;gap:3px;margin-bottom:1rem;}
@@ -260,7 +260,11 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .mcard-ai[data-level="green"]{background:rgba(56,217,169,.1);color:var(--green);}
 .mcard-ai[data-level="yellow"]{background:rgba(252,211,77,.1);color:var(--accent3);}
 .mcard-ai[data-level="red"]{background:rgba(255,71,87,.1);color:var(--danger);}
+.mcard-delete{background:none;border:none;cursor:pointer;color:var(--text3);font-size:1.2rem;padding:0 4px;border-radius:4px;transition:color .15s;flex-shrink:0;line-height:1;}
+.mcard-delete:hover{color:var(--danger);}
 .measurements-empty{text-align:center;padding:2rem 1rem;font-size:.85rem;color:var(--text3);}
+.btn-measurements-reset{background:transparent;border:1px solid var(--border);color:var(--text3);border-radius:6px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;transition:border-color .2s,color .2s;flex-shrink:0;}
+.btn-measurements-reset:hover{border-color:rgba(255,107,107,.5);color:var(--red);}
 
 /* ── No BLE ──────────────────────────────────────────────────────────── */
 .no-ble-msg{text-align:center;padding:1.5rem;}
@@ -350,6 +354,10 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 .confirm-box-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--text);margin-bottom:.6rem;}
 .confirm-box-text{font-size:.83rem;color:var(--text2);line-height:1.5;margin-bottom:1.4rem;}
 .confirm-box-btns{display:flex;gap:.75rem;justify-content:flex-end;}
+.confirm-btn-cancel{background:transparent;border:1px solid var(--border);color:var(--text3);border-radius:8px;padding:9px 16px;font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;transition:border-color .2s,color .2s;}
+.confirm-btn-cancel:hover{border-color:var(--text2);color:var(--text2);}
+.confirm-btn-ok{background:var(--accent);border:none;color:#0a0d12;border-radius:8px;padding:9px 18px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:filter .2s;}
+.confirm-btn-ok:hover{filter:brightness(1.1);}
 
 /* ── RFD scroll picker ───────────────────────────────────────────────── */
 .rfd-picker-wrap{width:110px;height:90px;position:relative;overflow:hidden;border-radius:8px;background:var(--surface2);border:1px solid var(--border2);flex-shrink:0;}
@@ -401,7 +409,7 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
       </svg>
     </button>
-    <button id="btn-reset" class="btn-reset" title="Reiniciar">↺ <span class="btn-reset-text">Reiniciar</span></button>
+
     <button id="btn-global" class="btn-global" title="Idioma / Translate">🌐<div class="translate-tooltip">Long-press or right-click → Translate to English</div></button>
     <button id="btn-ble" class="sensor-badge pending" title="Dispositivo Bluetooth">
       <svg width="12" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>
@@ -599,11 +607,6 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
     <!-- Config -->
     <div id="rfd-section-config">
       <div class="card">
-        <!-- Laterality -->
-        <div class="mode-toggle" id="rfd-laterality-toggle">
-          <button class="mode-btn active" data-laterality="single">Individual</button>
-          <button class="mode-btn" data-laterality="comparison">Izquierda / Derecha</button>
-        </div>
         <input id="rfd-label-input" class="text-input" type="text" placeholder="Movimiento (ej. Jalón)" autocomplete="off" style="margin-bottom:.875rem;">
         <!-- Method -->
         <div class="mode-toggle" id="rfd-method-toggle" style="margin-bottom:.875rem;">
@@ -775,7 +778,8 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
         Volver
       </button>
-      <span class="config-title" id="measurements-title">Mediciones</span>
+      <span class="config-title" id="measurements-title"></span>
+      <button id="btn-reset" class="btn-measurements-reset" title="Borrar mediciones">↺</button>
     </div>
 
     <div id="measurements-list"></div>

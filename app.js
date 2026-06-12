@@ -934,7 +934,7 @@ function _drawRfdChart(canvasId, points, opts = {}) {
     peakKg       = null,   // draw 20/80% lines
     t20 = null, t80 = null,
     f20 = null, f80 = null,
-    t0  = null, targetT = null,
+    t0  = null, targetT = null, ft = null,
     showMethod   = 'percent',
   } = opts;
 
@@ -1017,9 +1017,28 @@ function _drawRfdChart(canvasId, points, opts = {}) {
     ctx.fillText(`Max: ${peakKg.toFixed(1)} kg`, ml + cw - 4*dpr, mt + 14*dpr);
   }
 
+  // RFD slope line — spans exactly the interval used for the calculation
+  if (showMethod === 'percent' && t20 !== null && t80 !== null && f20 !== null && f80 !== null) {
+    ctx.strokeStyle = '#f87171';
+    ctx.lineWidth   = 2.5 * dpr;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(xOf(t20), yOf(f20));
+    ctx.lineTo(xOf(t80), yOf(f80));
+    ctx.stroke();
+  } else if (showMethod === 'interval' && t0 !== null && targetT !== null && ft !== null) {
+    ctx.strokeStyle = '#f87171';
+    ctx.lineWidth   = 2.5 * dpr;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(xOf(t0), yOf(threshold ?? 0));
+    ctx.lineTo(xOf(Math.min(targetT, RFD_RECORD_MS)), yOf(ft));
+    ctx.stroke();
+  }
+
   // Force curve
   if (points.length < 2) return;
-  ctx.strokeStyle = '#e8edf5';
+  ctx.strokeStyle = '#fb923c';
   ctx.lineWidth   = 1.5*dpr;
   ctx.lineJoin    = 'round';
   ctx.beginPath();
@@ -1209,8 +1228,8 @@ function showConfirmBanner(title, text, actionLabel, onConfirm) {
       <div class="confirm-box-title">${title}</div>
       <div class="confirm-box-text">${text}</div>
       <div class="confirm-box-btns">
-        <button class="btn btn-secondary" id="confirmCancel" style="font-size:.85rem;padding:9px 18px;">Cancelar</button>
-        <button class="btn btn-primary"   id="confirmAction" style="font-size:.85rem;padding:9px 18px;">${actionLabel}</button>
+        <button class="confirm-btn-cancel" id="confirmCancel">Cancelar</button>
+        <button class="confirm-btn-ok"     id="confirmAction">${actionLabel}</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -1296,15 +1315,6 @@ function _bindUI() {
       _laterality = btn.dataset.laterality;
     });
   });
-  // Mode toggles — rfd laterality
-  document.querySelectorAll('#rfd-laterality-toggle .mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#rfd-laterality-toggle .mode-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      _laterality = btn.dataset.laterality;
-    });
-  });
-
   // RFD method toggle (config)
   document.querySelectorAll('#rfd-method-toggle .mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1341,8 +1351,12 @@ function _bindUI() {
   });
 
   // Start buttons
-  document.getElementById('btn-start-peak').addEventListener('click', _startTest);
+  document.getElementById('btn-start-peak').addEventListener('click', () => {
+    if (!_device?.gatt?.connected) { _updateBLEDialog(); document.getElementById('dialog-ble').showModal(); return; }
+    _startTest();
+  });
   document.getElementById('btn-start-rfd').addEventListener('click', async () => {
+    if (!_device?.gatt?.connected) { _updateBLEDialog(); document.getElementById('dialog-ble').showModal(); return; }
     _showTestSection('rfd', 'measure');
     await _runRfdCountdown();
     _startTest();
@@ -1522,8 +1536,21 @@ function _bindUI() {
     _showScreen('screen-measurements');
   });
 
-  // Reset
-  document.getElementById('btn-reset').addEventListener('click', _softReset);
+  // Reset (measurements only — not full session clear)
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    showConfirmBanner(
+      '↺ Borrar mediciones',
+      'Se eliminarán las mediciones de dinamometría. Los datos de otros satélites se conservarán.',
+      'Borrar',
+      () => {
+        _savedResults = [];
+        writeSession({ force: [] });
+        _sessionCh.postMessage({ type: 'SESSION_FORCE', force: [] });
+        _renderSessionState();
+        _showScreen('screen-menu');
+      }
+    );
+  });
 
   // Session icon (person) → confirm banner
   document.getElementById('btn-session').addEventListener('click', promptClearSession);
@@ -1596,8 +1623,7 @@ function _openTest(test) {
     _showScreen('screen-peak');
     _showTestSection('peak', 'config');
   } else if (test === 'rfd') {
-    const active = document.querySelector('#rfd-laterality-toggle .mode-btn.active');
-    _laterality = active?.dataset.laterality ?? 'single';
+    _laterality = 'single';
     // Sync method toggle + interval settings visibility
     document.querySelectorAll('#rfd-method-toggle .mode-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.method === _rfdMethod);
@@ -1950,13 +1976,13 @@ function _renderRfdResults(payload) {
     rc.width  = rc.clientWidth  * (window.devicePixelRatio || 1);
     rc.height = rc.clientHeight * (window.devicePixelRatio || 1);
     const p2080 = _calcRfd2080(clip);
+    const pInt0 = _calcRfdInterval(clip, _rfdIntervalThr, winMs);
     _drawRfdChart('rfd-result-canvas', clip, {
       showMethod: _rfdResMethod,
       threshold:  _rfdIntervalThr,
       peakKg,
       t20: p2080.t20, t80: p2080.t80, f20: p2080.f20, f80: p2080.f80,
-      t0:  _calcRfdInterval(clip, _rfdIntervalThr, winMs).t0,
-      targetT: _calcRfdInterval(clip, _rfdIntervalThr, winMs).targetT,
+      t0: pInt0.t0, targetT: pInt0.targetT, ft: pInt0.ft,
     });
   }
 
@@ -2003,7 +2029,7 @@ function _redrawResultChart() {
     threshold:  _rfdResThreshold,
     peakKg,
     t20: p2080.t20, t80: p2080.t80, f20: p2080.f20, f80: p2080.f80,
-    t0: pInt.t0, targetT: pInt.targetT,
+    t0: pInt.t0, targetT: pInt.targetT, ft: pInt.ft,
   });
 
   // Update interval RFD label + value
@@ -2315,6 +2341,28 @@ function _renderMeasurementsList(type = null) {
       `<div class="mcard-values">${valStr}</div>` +
       (aiLevel ? `<span class="mcard-ai" data-level="${aiLevel}">AI ${ai.toFixed(1)} %</span>` : '');
 
+    const delBtn = document.createElement('button');
+    delBtn.className = 'mcard-delete';
+    delBtn.setAttribute('aria-label', 'Eliminar');
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const label = m.label ?? `Medición ${i + 1}`;
+      showConfirmBanner(
+        'Borrar medición',
+        `¿Eliminar "${label}"?`,
+        'Borrar',
+        () => {
+          const idx = _savedResults.indexOf(m);
+          if (idx !== -1) _savedResults = _savedResults.filter((_, j) => j !== idx);
+          writeSession({ force: _savedResults });
+          _sessionCh.postMessage({ type: 'SESSION_FORCE', force: _savedResults });
+          _renderSessionState();
+          _renderMeasurementsList(_measurementsType);
+        }
+      );
+    });
+    card.querySelector('.mcard-header').appendChild(delBtn);
     list.appendChild(card);
   });
 }
