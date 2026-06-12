@@ -361,7 +361,7 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 
 /* ── RFD scroll picker ───────────────────────────────────────────────── */
 .rfd-picker-wrap{width:110px;height:90px;position:relative;overflow:hidden;border-radius:8px;background:var(--surface2);border:1px solid var(--border2);flex-shrink:0;}
-.rfd-picker{width:100%;height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.rfd-picker{width:100%;height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;position:relative;z-index:1;}
 .rfd-picker::-webkit-scrollbar{display:none;}
 .rfd-picker-spacer{height:30px;}
 .rfd-picker-item{height:30px;scroll-snap-align:center;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:.82rem;color:var(--text3);cursor:pointer;}
@@ -370,6 +370,10 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 .rfd-picker-wrap::before{top:0;background:linear-gradient(to bottom,var(--surface2) 10%,transparent);}
 .rfd-picker-wrap::after{bottom:0;background:linear-gradient(to top,var(--surface2) 10%,transparent);}
 .rfd-picker-hl{position:absolute;top:50%;left:4px;right:4px;height:30px;transform:translateY(-50%);background:var(--surface3);border-radius:6px;border:1px solid var(--border2);pointer-events:none;z-index:1;}
+.rfd-interval-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem;}
+.rfd-interval-col{display:flex;flex-direction:column;gap:.4rem;}
+.rfd-interval-col .rfd-picker-wrap{width:100%;}
+.rfd-interval-col .field-input{width:100%;}
 /* ── RFD value grid ──────────────────────────────────────────────────── */
 .rfd-vals-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
 .rfd-val-cell{display:flex;flex-direction:column;align-items:center;gap:.2rem;padding:.75rem .5rem;background:var(--surface2);border-radius:10px;border:1px solid var(--border);}
@@ -615,25 +619,27 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
         </div>
         <!-- Interval settings -->
         <div id="rfd-interval-cfg" hidden>
-          <div class="field-row" style="align-items:flex-start;margin-bottom:.75rem;">
-            <span class="field-label" style="padding-top:.5rem;">Ventana de tiempo</span>
-            <div class="rfd-picker-wrap">
-              <div class="rfd-picker-hl"></div>
-              <div class="rfd-picker" id="rfd-window-picker">
-                <div class="rfd-picker-spacer"></div>
-                <div class="rfd-picker-item active" data-val="100">100 ms</div>
-                <div class="rfd-picker-item" data-val="150">150 ms</div>
-                <div class="rfd-picker-item" data-val="200">200 ms</div>
-                <div class="rfd-picker-item" data-val="250">250 ms</div>
-                <div class="rfd-picker-item" data-val="300">300 ms</div>
-                <div class="rfd-picker-item" data-val="1000">1000 ms</div>
-                <div class="rfd-picker-spacer"></div>
+          <div class="rfd-interval-row">
+            <div class="rfd-interval-col">
+              <span class="field-label">Ventana (ms)</span>
+              <div class="rfd-picker-wrap">
+                <div class="rfd-picker-hl"></div>
+                <div class="rfd-picker" id="rfd-window-picker">
+                  <div class="rfd-picker-spacer"></div>
+                  <div class="rfd-picker-item active" data-val="100">100 ms</div>
+                  <div class="rfd-picker-item" data-val="150">150 ms</div>
+                  <div class="rfd-picker-item" data-val="200">200 ms</div>
+                  <div class="rfd-picker-item" data-val="250">250 ms</div>
+                  <div class="rfd-picker-item" data-val="300">300 ms</div>
+                  <div class="rfd-picker-item" data-val="1000">1000 ms</div>
+                  <div class="rfd-picker-spacer"></div>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="field-row">
-            <span class="field-label">Umbral de inicio (kg)</span>
-            <input id="rfd-threshold-input" class="field-input" type="number" min="0.1" max="20" step="0.1" value="0.50">
+            <div class="rfd-interval-col">
+              <span class="field-label">Umbral (kg)</span>
+              <input id="rfd-threshold-input" class="field-input" type="number" min="0.1" max="20" step="0.1" value="0.50">
+            </div>
           </div>
         </div>
         <!-- IFE -->
@@ -651,7 +657,7 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
           </div>
         </div>
       </div>
-      <div class="card" style="margin-top:0;">
+      <div class="card" style="margin-top:.875rem;">
         <p class="info-block-title">Acerca del test RFD</p>
         <p class="info-block-text">RFD mide la fuerza explosiva: qué tan rápido el músculo desarrolla tensión (pendiente de la curva fuerza-tiempo). La grabación dura <strong>5 s</strong>. Tara el sensor antes de comenzar y elimina toda holgura antes de la tracción.<br><br><strong>20-80%:</strong> pendiente entre el 20 % y 80 % de la carga máxima (defecto).<br><strong>Intervalo de tiempo:</strong> pendiente entre el cruce del umbral (t₀) y t₀ + ventana configurada.</p>
       </div>
@@ -726,25 +732,27 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
             <button class="mode-btn" data-method="interval">Intervalo de tiempo</button>
           </div>
           <div id="rfd-res-interval-cfg" hidden>
-            <div class="field-row" style="align-items:flex-start;margin-bottom:.625rem;">
-              <span class="field-label" style="padding-top:.5rem;">Ventana</span>
-              <div class="rfd-picker-wrap">
-                <div class="rfd-picker-hl"></div>
-                <div class="rfd-picker" id="rfd-res-window-picker">
-                  <div class="rfd-picker-spacer"></div>
-                  <div class="rfd-picker-item active" data-val="100">100 ms</div>
-                  <div class="rfd-picker-item" data-val="150">150 ms</div>
-                  <div class="rfd-picker-item" data-val="200">200 ms</div>
-                  <div class="rfd-picker-item" data-val="250">250 ms</div>
-                  <div class="rfd-picker-item" data-val="300">300 ms</div>
-                  <div class="rfd-picker-item" data-val="1000">1000 ms</div>
-                  <div class="rfd-picker-spacer"></div>
+            <div class="rfd-interval-row">
+              <div class="rfd-interval-col">
+                <span class="field-label">Ventana (ms)</span>
+                <div class="rfd-picker-wrap">
+                  <div class="rfd-picker-hl"></div>
+                  <div class="rfd-picker" id="rfd-res-window-picker">
+                    <div class="rfd-picker-spacer"></div>
+                    <div class="rfd-picker-item active" data-val="100">100 ms</div>
+                    <div class="rfd-picker-item" data-val="150">150 ms</div>
+                    <div class="rfd-picker-item" data-val="200">200 ms</div>
+                    <div class="rfd-picker-item" data-val="250">250 ms</div>
+                    <div class="rfd-picker-item" data-val="300">300 ms</div>
+                    <div class="rfd-picker-item" data-val="1000">1000 ms</div>
+                    <div class="rfd-picker-spacer"></div>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="field-row">
-              <span class="field-label">Umbral (kg)</span>
-              <input id="rfd-res-threshold" class="field-input" type="number" min="0.1" max="20" step="0.1" value="0.50">
+              <div class="rfd-interval-col">
+                <span class="field-label">Umbral (kg)</span>
+                <input id="rfd-res-threshold" class="field-input" type="number" min="0.1" max="20" step="0.1" value="0.50">
+              </div>
             </div>
           </div>
           <label class="live-zone-toggle-btn" for="rfd-res-ife-check" style="padding:.35rem 0;border-radius:0;background:none;">
@@ -807,7 +815,20 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
           <span style="font-size:.88rem;font-weight:500;">Zona objetivo</span>
         </label>
         <div id="live-zone-body" hidden style="padding:0 1rem 1rem;border-top:1px solid var(--border);">
-          <div class="field-row" style="margin-top:.75rem;">
+          <div id="live-slider-section" style="margin-top:1rem;margin-bottom:.25rem;">
+            <div class="dual-range">
+              <div class="dual-range-track" id="dual-track">
+                <div class="dual-range-fill" id="dual-fill"></div>
+                <div class="dual-range-thumb" id="thumb-min" tabindex="0" data-pct="40%"></div>
+                <div class="dual-range-thumb" id="thumb-max" tabindex="0" data-pct="60%"></div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:0 10px;">
+              <span id="slider-min-kg" style="font-size:.75rem;font-family:'DM Mono',monospace;color:var(--text3);">—</span>
+              <span id="slider-max-kg" style="font-size:.75rem;font-family:'DM Mono',monospace;color:var(--text3);">—</span>
+            </div>
+          </div>
+          <div class="field-row" style="margin-top:.5rem;">
             <span class="field-label">Mínimo (kg)</span>
             <input id="live-min-input" class="field-input" type="number" min="0" step="0.5" placeholder="—">
           </div>
@@ -821,19 +842,6 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
               <span id="live-peak-trigger-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">Seleccionar…</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
-            <div id="live-slider-section" hidden style="margin-top:1.75rem;">
-              <div class="dual-range">
-                <div class="dual-range-track" id="dual-track">
-                  <div class="dual-range-fill" id="dual-fill"></div>
-                  <div class="dual-range-thumb" id="thumb-min" tabindex="0" data-pct="40%"></div>
-                  <div class="dual-range-thumb" id="thumb-max" tabindex="0" data-pct="60%"></div>
-                </div>
-              </div>
-              <div style="display:flex;justify-content:space-between;padding:0 10px;">
-                <span id="slider-min-kg" style="font-size:.75rem;font-family:'DM Mono',monospace;color:var(--text3);">—</span>
-                <span id="slider-max-kg" style="font-size:.75rem;font-family:'DM Mono',monospace;color:var(--text3);">—</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>

@@ -487,8 +487,6 @@ function _renderMvcSheetItems(query = '') {
         if (lbl) lbl.textContent = name;
         _sliderMinPct = 40;
         _sliderMaxPct = 60;
-        const sliderSection = document.getElementById('live-slider-section');
-        if (sliderSection) sliderSection.hidden = false;
         _updateDualSlider();
       }
       _closeMvcSheet();
@@ -1423,7 +1421,9 @@ function _bindUI() {
   document.getElementById('live-zone-check').addEventListener('change', function () {
     const body = document.getElementById('live-zone-body');
     body.hidden = !this.checked;
-    if (!this.checked) {
+    if (this.checked) {
+      _updateDualSlider();
+    } else {
       document.getElementById('live-min-input').value = '';
       document.getElementById('live-max-input').value = '';
       document.getElementById('live-min-input').classList.remove('error');
@@ -1434,8 +1434,6 @@ function _bindUI() {
       _selectedPeakResult = null;
       _sliderMinPct = 40;
       _sliderMaxPct = 60;
-      const sliderSection = document.getElementById('live-slider-section');
-      if (sliderSection) sliderSection.hidden = true;
       const lbl = document.getElementById('live-peak-trigger-label');
       if (lbl) lbl.textContent = 'Seleccionar…';
     }
@@ -1638,8 +1636,6 @@ function _openTest(test) {
     _selectedPeakResult = null;
     _sliderMinPct = 40;
     _sliderMaxPct = 60;
-    const sliderSection = document.getElementById('live-slider-section');
-    if (sliderSection) sliderSection.hidden = true;
     const lbl = document.getElementById('live-peak-trigger-label');
     if (lbl) lbl.textContent = 'Seleccionar…';
     const zoneCheck = document.getElementById('live-zone-check');
