@@ -2358,28 +2358,6 @@ function _renderMeasurementsList(type = null) {
       `<div class="mcard-values">${valStr}</div>` +
       (aiLevel ? `<span class="mcard-ai" data-level="${aiLevel}">AI ${ai.toFixed(1)} %</span>` : '');
 
-    const delBtn = document.createElement('button');
-    delBtn.className = 'mcard-delete';
-    delBtn.setAttribute('aria-label', 'Eliminar');
-    delBtn.textContent = '×';
-    delBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      const label = m.label ?? `Medición ${i + 1}`;
-      showConfirmBanner(
-        'Borrar medición',
-        `¿Eliminar "${label}"?`,
-        'Borrar',
-        () => {
-          const idx = _savedResults.indexOf(m);
-          if (idx !== -1) _savedResults = _savedResults.filter((_, j) => j !== idx);
-          writeSession({ force: _savedResults });
-          _sessionCh.postMessage({ type: 'SESSION_FORCE', force: _savedResults });
-          _renderSessionState();
-          _renderMeasurementsList(_measurementsType);
-        }
-      );
-    });
-    card.querySelector('.mcard-header').appendChild(delBtn);
     list.appendChild(card);
   });
 }
@@ -2402,14 +2380,8 @@ function _registerSW() {
     let startY = 0, startTime = 0, dragging = false, delta = 0, snapTimer = null;
     const EASE = 'transform 0.3s cubic-bezier(.32,1,.23,1)';
 
-    function isHeaderTouch(target) {
-      return ['.mvc-sheet-handle', '.mvc-sheet-title']
-        .map(s => sheet.querySelector(s))
-        .some(el => el && el.contains(target));
-    }
-
     sheet.addEventListener('touchstart', e => {
-      if (!isHeaderTouch(e.target)) return;
+      if (e.touches[0].clientY - sheet.getBoundingClientRect().top > 72) return;
       startY = e.touches[0].clientY;
       startTime = Date.now();
       delta = 0;
