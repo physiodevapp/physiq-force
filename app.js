@@ -1594,6 +1594,8 @@ function _renderSessionState() {
   _sessionLabel = active
     ? (_patient ? `${_patient} · ${date}` : `Sesión · ${date}`)
     : '';
+  const resetBtn = document.getElementById('btn-reset');
+  if (resetBtn) resetBtn.style.display = _savedResults.length > 0 ? '' : 'none';
   _renderGlobalExport();
 }
 
