@@ -1198,9 +1198,7 @@ function _softReset() {
   _savedResults = [];
   _patient      = '';
   _sessionDate  = '';
-  writeSession({ force: [], patient: '', date: '' });
   _sessionCh.postMessage({ type: 'SESSION_FORCE', force: [] });
-  _sessionCh.postMessage({ type: 'SESSION_PATIENT', patient: '' });
   _syncPatientInputs('');
   _renderSessionState();
   _showScreen('screen-menu');
