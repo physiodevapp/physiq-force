@@ -794,17 +794,15 @@ function _runRfdCountdown() {
     };
 
     overlay.style.display = 'flex';
-    show('La sesión empieza en', '3');
+    show('La sesión empieza en', String(_rfdCountdown));
 
     const iv = setInterval(() => {
       if (cancelled) { clearInterval(iv); return; }
       ticks++;
-      if      (ticks === 1) show('La sesión empieza en', '2');
-      else if (ticks === 2) show('La sesión empieza en', '1');
-      else if (ticks === 3) show('Tira adentro', '3');
-      else if (ticks === 4) show('Tira adentro', '2');
-      else if (ticks === 5) show('Tira adentro', '1');
-      else if (ticks === 6) {
+      const remaining = _rfdCountdown - ticks;
+      if (remaining > 0) {
+        show('La sesión empieza en', String(remaining));
+      } else {
         clearInterval(iv);
         show('Tira ahora', '');
         cancelEl.removeEventListener('click', cancel);
