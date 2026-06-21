@@ -122,8 +122,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.addEventListener('popstate', async () => {
-  if (_measuring) await _stopMeasurement();
-  if (_liveMode)  await _stopLive();
+  if (_measuring || _liveMode) {
+    history.pushState({ physiqForce: true }, '');
+    return;
+  }
   _inSubScreen = false;
   document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'screen-menu'; });
 });
