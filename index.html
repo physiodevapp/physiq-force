@@ -29,6 +29,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif
 .app-header.measuring{opacity:.3;pointer-events:none;}
 .logo{display:flex;align-items:baseline;gap:4px;flex-shrink:0;}
 .logo-main{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--text);letter-spacing:-.5px;}
+.logo-q{background:linear-gradient(135deg,#4f9cf9,#38d9a9);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
 @keyframes hub-back-hint{0%{transform:translateX(0)}35%{transform:translateX(-5px)}65%{transform:translateX(1px)}100%{transform:translateX(0)}}
 .in-hub .logo-main{cursor:pointer;transition:opacity .15s;}
 .in-hub .logo-main::before{content:'‹';display:inline-block;margin-right:8px;opacity:.55;animation:hub-back-hint .7s ease-out .5s 1 both;}
@@ -410,7 +411,7 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 <!-- ── Header ──────────────────────────────────────────────────────────────── -->
 <header class="app-header">
   <div class="logo">
-    <span class="logo-main">PhysiQ</span>
+    <span class="logo-main">Physi<span class="logo-q">Q</span></span>
     <span class="logo-sub">— <span class="logo-sub-word">Force</span><span class="logo-sub-initial" aria-hidden="true">F</span></span>
   </div>
   <div class="header-right">
