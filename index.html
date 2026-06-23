@@ -258,14 +258,15 @@ html,body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif
 
 /* ── Measurements grid ───────────────────────────────────────────────── */
 #measurements-list{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px 0 16px;}
-.mcard{display:flex;flex-direction:column;gap:.25rem;padding:.875rem .875rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);position:relative;overflow:hidden;transition:border-color .15s;}
-.mcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);opacity:.7;}
+.mcard{display:flex;flex-direction:column;gap:8px;padding:18px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);position:relative;overflow:hidden;transition:border-color .15s,transform .1s;animation:fadeUp .3s ease both;}
+.mcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);opacity:.6;}
+.mcard:hover{border-color:var(--border2);}
 .mcard:active{transform:scale(.97);}
-.mcard-icon{font-size:20px;margin-bottom:4px;}
-.mcard-label{font-size:.82rem;font-weight:600;color:var(--text);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.mcard-type{font-size:.65rem;font-family:'DM Mono',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-top:1px;}
-.mcard-values{font-size:.78rem;color:var(--accent);font-family:'DM Mono',monospace;line-height:1.55;margin-top:4px;flex:1;}
-.mcard-footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:4px;}
+.mcard-icon{font-size:20px;}
+.mcard-label{font-family:'Outfit',sans-serif;font-size:15px;font-weight:500;color:var(--text);line-height:1.3;}
+.mcard-type{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;}
+.mcard-values{font-size:.78rem;color:var(--accent);font-family:'DM Mono',monospace;line-height:1.55;flex:1;}
+.mcard-footer{display:flex;align-items:center;justify-content:space-between;margin-top:auto;gap:4px;}
 .mcard-time{font-size:.65rem;color:var(--text3);font-family:'DM Mono',monospace;flex-shrink:0;}
 .mcard-ai{display:inline-block;font-size:.65rem;padding:2px 5px;border-radius:4px;flex-shrink:0;}
 .mcard-ai[data-level="green"]{background:rgba(56,217,169,.1);color:var(--green);}
