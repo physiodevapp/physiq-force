@@ -2320,18 +2320,18 @@ function _renderMeasurementsList(type = null) {
       if (m.peak     != null) parts.push(`Máx: ${m.peak.toFixed(1)} kg`);
       if (m.avg      != null) parts.push(`Media: ${m.avg.toFixed(1)} kg`);
       if (m.duration != null) parts.push(`${m.duration}s`);
-      valStr = parts.join(' · ') || '—';
+      valStr = parts.join('<br>') || '—';
     } else if (m.testType === 'rfd' && m.laterality === 'comparison') {
       const l2 = m.sides?.left?.rfd2080;
       const r2 = m.sides?.right?.rfd2080;
       const parts = [];
       if (l2 != null) parts.push(`I: ${l2.toFixed(1)} kg/s`);
       if (r2 != null) parts.push(`D: ${r2.toFixed(1)} kg/s`);
-      valStr = parts.join(' · ');
+      valStr = parts.join('<br>');
     } else if (m.testType === 'rfd') {
       const sideLabel = m.side === 'left' ? 'Izq · ' : m.side === 'right' ? 'Der · ' : '';
       const v2080 = m.rfd2080 != null ? `${sideLabel}2080=${m.rfd2080.toFixed(1)} kg/s` : '—';
-      const vTime = m.rfdTime != null ? ` · ${m.rfdWindowMs ?? '?'}ms=${m.rfdTime.toFixed(1)} kg/s` : '';
+      const vTime = m.rfdTime != null ? `<br>${m.rfdWindowMs ?? '?'}ms=${m.rfdTime.toFixed(1)} kg/s` : '';
       valStr = v2080 + vTime;
     } else if (m.laterality === 'comparison') {
       const l = m.sides?.left?.peak;
@@ -2339,7 +2339,7 @@ function _renderMeasurementsList(type = null) {
       const parts = [];
       if (l != null) parts.push(`I: ${l.toFixed(1)} kg`);
       if (r != null) parts.push(`D: ${r.toFixed(1)} kg`);
-      valStr = parts.join(' · ');
+      valStr = parts.join('<br>');
     } else {
       const peak      = m.peak;
       const sideLabel = m.side === 'left' ? 'Izq · ' : m.side === 'right' ? 'Der · ' : '';
@@ -2350,13 +2350,18 @@ function _renderMeasurementsList(type = null) {
     const ai = m.asymmetryIndex ?? (_l != null && _r != null ? (() => { const avg = (_l + _r) / 2; return avg ? Math.abs(_l - _r) / avg * 100 : null; })() : null);
     const aiLevel = ai != null ? (ai < 10 ? 'green' : ai < 20 ? 'yellow' : 'red') : null;
 
+    const typeIcon  = m.testType === 'live' ? '📊' : m.testType === 'rfd' ? '⚡' : '💪';
+    const typeLabel = m.testType === 'live' ? 'Tiempo real' : m.testType === 'rfd' ? 'RFD' : 'Fuerza Pico';
+
     card.innerHTML =
-      `<div class="mcard-header">` +
-        `<span class="mcard-label">${m.label ?? `Medición ${i + 1}`}</span>` +
-        `<span class="mcard-time">${timeStr}</span>` +
-      `</div>` +
+      `<div class="mcard-icon">${typeIcon}</div>` +
+      `<div class="mcard-label">${m.label ?? `Medición ${i + 1}`}</div>` +
+      `<div class="mcard-type">${typeLabel}</div>` +
       `<div class="mcard-values">${valStr}</div>` +
-      (aiLevel ? `<span class="mcard-ai" data-level="${aiLevel}">AI ${ai.toFixed(1)} %</span>` : '');
+      `<div class="mcard-footer">` +
+        `<span class="mcard-time">${timeStr}</span>` +
+        (aiLevel ? `<span class="mcard-ai" data-level="${aiLevel}">AI ${ai.toFixed(1)} %</span>` : `<span></span>`) +
+      `</div>`;
 
     list.appendChild(card);
   });
