@@ -1185,10 +1185,11 @@ function _saveResults(payload) {
   _savedResults = [..._savedResults, payload];
   if (!_sessionDate) _sessionDate = new Date().toLocaleDateString('es-ES');
   _renderSessionState();
-  writeSession({ force: _savedResults, patient: _patient, date: _sessionDate }).then(() => {
-    if (_patient) _sessionCh.postMessage({ type: 'SESSION_PATIENT', patient: _patient });
-  });
   _sessionCh.postMessage({ type: 'SESSION_FORCE', force: _savedResults });
+  if (!_patient) return;
+  writeSession({ force: _savedResults, patient: _patient, date: _sessionDate }).then(() => {
+    _sessionCh.postMessage({ type: 'SESSION_PATIENT', patient: _patient });
+  });
 }
 
 function _softReset() {
@@ -1600,12 +1601,12 @@ function _syncPatientInputs(value) {
 }
 
 function _renderSessionState() {
-  const active = !!_patient || _savedResults.length > 0;
+  const active = !!_patient;
   const btn = document.getElementById('btn-session');
   if (btn) btn.classList.toggle('active', active);
   const date = _sessionDate || new Date().toLocaleDateString('es-ES');
   _sessionLabel = active
-    ? (_patient ? `${_patient} · ${date}` : `Sesión · ${date}`)
+    ? `${_patient} · ${date}`
     : '';
   const resetBtn = document.getElementById('btn-reset');
   if (resetBtn) resetBtn.style.display = _savedResults.length > 0 ? '' : 'none';
