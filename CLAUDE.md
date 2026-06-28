@@ -78,7 +78,7 @@ IDB (`lib/session.js`) is the only persistence layer — no localStorage.
 - `clearSession()` — deletes `'active'`
 
 **Write triggers** (explicit user actions only):
-- `_saveResults()` — writes `{ force: _savedResults, patient, date }` after saving a measurement set
+- `_saveResults()` — emits `SESSION_FORCE` always; writes `{ force: _savedResults, patient, date }` to IDB only if `_patient` is set
 - `_deleteSavedResult(timestamp)` — removes one result by timestamp, writes `{ force: _savedResults }`, broadcasts `SESSION_FORCE`
 - `_persistPatient()` — writes `{ patient, date }` after the patient name input changes
 
