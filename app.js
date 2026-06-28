@@ -1172,6 +1172,13 @@ function _buildResults() {
 _sessionCh.onmessage = ({ data }) => {
   if (data.type === 'SESSION_PATIENT') { _patient = data.patient ?? ''; _renderSessionState(); }
   if (data.type === 'SESSION_CLEAR')   _softReset();
+  if (data.type === 'SESSION_FORCE' && data._relay) {
+    _savedResults = Array.isArray(data.force) ? data.force : [];
+    _renderSessionState();
+    const measScreen = document.getElementById('screen-measurements');
+    if (measScreen && !measScreen.hidden) _renderMeasurementsList(_measurementsType);
+  }
+  if (data.type === 'SESSION_BLE_STATUS' && data._relay) _setRemoteBLEStatus(data.bleStatus);
 };
 
 function _saveResults(payload) {
@@ -1817,9 +1824,19 @@ function _setBLEStatus(state) {
   _bleStatus = state;
   const badge = document.getElementById('btn-ble');
   if (!badge) return;
-  badge.classList.remove('active', 'pending', 'error');
+  badge.classList.remove('active', 'pending', 'error', 'remote');
   if (state === 'connected') badge.classList.add('active');
   else                       badge.classList.add('pending');
+  _sessionCh.postMessage({ type: 'SESSION_BLE_STATUS', bleStatus: state });
+}
+
+function _setRemoteBLEStatus(status) {
+  if (_bleStatus === 'connected') return;
+  const badge = document.getElementById('btn-ble');
+  if (!badge) return;
+  badge.classList.remove('active', 'pending', 'error', 'remote');
+  if (status === 'connected') badge.classList.add('remote');
+  else                        badge.classList.add('pending');
 }
 
 function _updateBLEDialog() {
