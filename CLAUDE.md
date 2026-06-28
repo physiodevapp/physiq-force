@@ -94,6 +94,8 @@ physiq-force is the **source of truth** for the session ghost-write pattern: `wr
 
 **On startup:** `readSession()` restores force results and patient name if a session exists.
 
+**Session button** — `#btn-session` (person SVG) in the header. `_renderSessionState()` sets `.active` on the button using `active = !!_patient`. The button only activates when a patient name is set; measurements alone (without a patient name) do not activate it. Clicking triggers `promptClearSession()`.
+
 ## BroadcastChannel protocol
 
 All satellites use `const _sessionCh = new BroadcastChannel('physiq-session')`.
