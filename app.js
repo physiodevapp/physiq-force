@@ -1171,7 +1171,7 @@ function _buildResults() {
 // ── Session protocol ──────────────────────────────────────────────────────────
 _sessionCh.onmessage = ({ data }) => {
   if (data.type === 'SESSION_PATIENT') { _patient = data.patient ?? ''; _renderSessionState(); }
-  if (data.type === 'SESSION_CLEAR')   _softReset();
+  if (data.type === 'SESSION_CLEAR') { _softReset(); clearSession(); }
   if (data.type === 'SESSION_FORCE' && data._relay) {
     _savedResults = Array.isArray(data.force) ? data.force : [];
     _renderSessionState();
@@ -1209,6 +1209,14 @@ function _softReset() {
   _syncPatientInputs('');
   _renderSessionState();
   _showScreen('screen-menu');
+}
+
+function _deleteSavedResult(timestamp) {
+  _savedResults = _savedResults.filter(r => r.timestamp !== timestamp);
+  writeSession({ force: _savedResults });
+  _sessionCh.postMessage({ type: 'SESSION_FORCE', force: _savedResults });
+  _renderSessionState();
+  _renderMeasurementsList(_measurementsType);
 }
 
 function _loadSession() {
@@ -2378,8 +2386,13 @@ function _renderMeasurementsList(type = null) {
       `<div class="mcard-footer">` +
         `<span class="mcard-time">${timeStr}</span>` +
         (aiLevel ? `<span class="mcard-ai" data-level="${aiLevel}">AI ${ai.toFixed(1)} %</span>` : `<span></span>`) +
+        `<button class="mcard-delete" aria-label="Eliminar">✕</button>` +
       `</div>`;
 
+    card.querySelector('.mcard-delete').addEventListener('click', e => {
+      e.stopPropagation();
+      _deleteSavedResult(m.timestamp);
+    });
     list.appendChild(card);
   });
 }

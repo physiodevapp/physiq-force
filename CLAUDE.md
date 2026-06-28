@@ -79,6 +79,7 @@ IDB (`lib/session.js`) is the only persistence layer — no localStorage.
 
 **Write triggers** (explicit user actions only):
 - `_saveResults()` — writes `{ force: _savedResults, patient, date }` after saving a measurement set
+- `_deleteSavedResult(timestamp)` — removes one result by timestamp, writes `{ force: _savedResults }`, broadcasts `SESSION_FORCE`
 - `_persistPatient()` — writes `{ patient, date }` after the patient name input changes
 
 physiq-force is the **source of truth** for the session ghost-write pattern: `writeSession` is only called on explicit user actions, so there is no risk of stale in-flight writes recreating a deleted session. No `_sessionGen`/`_sessionCleared` guards are needed.
@@ -88,6 +89,8 @@ physiq-force is the **source of truth** for the session ghost-write pattern: `wr
 **`_softReset()`** — clears all local measurement state and broadcasts `SESSION_FORCE: []`; does **not** call `writeSession` or `clearSession`.
 
 **`promptClearSession()`** — `_softReset()` → `clearSession()` → broadcast `SESSION_CLEAR`.
+
+**`SESSION_CLEAR` handler (external)** — `_softReset()` + `clearSession()`. Calling `clearSession()` here mirrors motion's behavior: if another satellite initiates the clear, force removes its own IDB entry rather than leaving stale data that would be restored on next startup.
 
 **On startup:** `readSession()` restores force results and patient name if a session exists.
 
@@ -100,7 +103,7 @@ Messages emitted by physiq-force:
 | Type | When | Payload |
 |------|------|---------|
 | `SESSION_PATIENT` | after `_persistPatient()` | `{ patient: string }` |
-| `SESSION_FORCE` | after `_saveResults()` or `_softReset()` | `{ force: array \| [] }` |
+| `SESSION_FORCE` | after `_saveResults()`, `_deleteSavedResult()`, or `_softReset()` | `{ force: array \| [] }` |
 | `SESSION_CLEAR` | after `promptClearSession()` | — |
 
 Messages received:
@@ -108,7 +111,7 @@ Messages received:
 | Type | Action |
 |------|--------|
 | `SESSION_PATIENT` | Updates `_patient` in memory, re-renders — no IDB write |
-| `SESSION_CLEAR` | Calls `_softReset()` |
+| `SESSION_CLEAR` | `_softReset()` + `clearSession()` |
 
 ## Dialogs
 
