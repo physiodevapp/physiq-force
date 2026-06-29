@@ -320,6 +320,9 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 /* ── MVC bottom sheet ────────────────────────────────────────────── */
 .mvc-backdrop{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .25s;}
 .mvc-backdrop.open{opacity:1;pointer-events:auto;}
+.measure-backdrop{position:fixed;inset:0;z-index:50;background:rgba(10,13,18,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .25s;}
+.measure-backdrop.open{opacity:1;pointer-events:auto;}
+#peak-section-measure,#rfd-section-measure,#live-section-measure{position:relative;z-index:51;}
 .mvc-sheet{position:fixed;left:0;right:0;bottom:0;z-index:401;background:var(--surface);border-radius:20px 20px 0 0;border-top:1px solid var(--border2);height:65vh;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,1,.23,1);}
 .mvc-sheet.open{transform:translateY(0);}
 .mvc-sheet-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:.75rem auto .5rem;flex-shrink:0;touch-action:none;}
@@ -992,6 +995,9 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
   </div>
   <div id="mvc-sheet-list" class="mvc-sheet-list"></div>
 </div>
+
+<!-- ── Measure blur backdrop ─────────────────────────────────────────────── -->
+<div id="measure-backdrop" class="measure-backdrop"></div>
 
 <!-- ── RFD countdown overlay ────────────────────────────────────────────── -->
 <div id="rfd-countdown-overlay" style="display:none;">
