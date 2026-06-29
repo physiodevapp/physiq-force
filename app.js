@@ -243,6 +243,7 @@ async function startMeasurement() {
   _measureStart = performance.now();
 
   document.querySelector('.app-header').classList.add('measuring');
+  document.getElementById('measure-backdrop').classList.add('open');
   _renderLiveReset();
   if (_currentTest !== 'peak') {
     _initCanvas(`${_currentTest}-canvas`);
@@ -255,6 +256,7 @@ async function _stopMeasurement() {
   if (!_measuring) return;
   _measuring = false;
   document.querySelector('.app-header').classList.remove('measuring');
+  document.getElementById('measure-backdrop').classList.remove('open');
   clearTimeout(_debTimer);
   if (_rfdAutoStop) { clearTimeout(_rfdAutoStop);  _rfdAutoStop = null; }
   if (_rfdRecTimer) { clearInterval(_rfdRecTimer); _rfdRecTimer = null; }
@@ -505,6 +507,7 @@ async function _startLive() {
   _liveSampleCount  = 0;
   _liveMode         = true;
   document.querySelector('.app-header').classList.add('measuring');
+  document.getElementById('measure-backdrop').classList.add('open');
   _renderLiveDisplay();
   _startLiveTimer();
   _doSoftTare();
@@ -518,6 +521,7 @@ async function _stopLive() {
   if (!_liveMode) return;
   _liveMode = false;
   document.querySelector('.app-header').classList.remove('measuring');
+  document.getElementById('measure-backdrop').classList.remove('open');
   clearInterval(_liveTimerIntervalId);
   _stopLiveChartLoop();
 }
@@ -824,6 +828,7 @@ function _startRfdRecording() {
   _measureStart = performance.now();
 
   document.querySelector('.app-header').classList.add('measuring');
+  document.getElementById('measure-backdrop').classList.add('open');
   _initCanvas('rfd-canvas');
   _startChartLoop();
   _doSoftTare();
@@ -849,6 +854,7 @@ async function _endRfdRecording() {
   if (!_measuring) return;
   _measuring = false;
   document.querySelector('.app-header').classList.remove('measuring');
+  document.getElementById('measure-backdrop').classList.remove('open');
   _stopChartLoop();
 
   if (_laterality === 'comparison' && _activeSide === 'left') {
