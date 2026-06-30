@@ -2382,11 +2382,9 @@ function _renderMeasurementsList(type = null) {
     const ai = m.asymmetryIndex ?? (_l != null && _r != null ? (() => { const avg = (_l + _r) / 2; return avg ? Math.abs(_l - _r) / avg * 100 : null; })() : null);
     const aiLevel = ai != null ? (ai < 10 ? 'green' : ai < 20 ? 'yellow' : 'red') : null;
 
-    const typeIcon  = m.testType === 'live' ? '📊' : m.testType === 'rfd' ? '⚡' : '💪';
     const typeLabel = m.testType === 'live' ? 'Tiempo real' : m.testType === 'rfd' ? 'RFD' : 'Fuerza Pico';
 
     card.innerHTML =
-      `<div class="mcard-icon">${typeIcon}</div>` +
       `<div class="mcard-label">${m.label ?? `Medición ${i + 1}`}</div>` +
       `<div class="mcard-type">${typeLabel}</div>` +
       `<div class="mcard-values">${valStr}</div>` +
