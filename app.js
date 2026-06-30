@@ -1523,15 +1523,15 @@ function _bindUI() {
   // IFE info button (results)
   document.getElementById('btn-rfd-res-ife-info')?.addEventListener('click', e => _showIFEInfo(e));
   document.getElementById('btn-peak-session').addEventListener('click', () => {
-    _measurementsType = null;
-    _setNewMeasurementBtn(null);
-    _renderMeasurementsList();
+    _measurementsType = 'peak';
+    _setNewMeasurementBtn('peak');
+    _renderMeasurementsList('peak');
     _showScreen('screen-measurements');
   });
   document.getElementById('btn-rfd-session').addEventListener('click', () => {
-    _measurementsType = null;
-    _setNewMeasurementBtn(null);
-    _renderMeasurementsList();
+    _measurementsType = 'rfd';
+    _setNewMeasurementBtn('rfd');
+    _renderMeasurementsList('rfd');
     _showScreen('screen-measurements');
   });
   document.getElementById('btn-new-measurement').addEventListener('click', () => {
@@ -2325,7 +2325,7 @@ function _renderMeasurementsList(type = null) {
   const titleEl = document.getElementById('measurements-title');
   if (!list) return;
 
-  const titles = { peak: 'Fuerza Pico', rfd: 'RFD', live: 'Datos en Vivo' };
+  const titles = { peak: 'Fuerza Pico / MVC', rfd: 'RFD', live: 'Datos en Vivo' };
   if (titleEl) titleEl.textContent = type ? (titles[type] ?? 'Mediciones') : 'Mediciones';
 
   const results = type ? _savedResults.filter(r => r.testType === type) : _savedResults;
