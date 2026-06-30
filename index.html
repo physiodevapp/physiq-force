@@ -432,6 +432,7 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
       </svg>
     </button>
+    <button id="btn-reset" class="btn-reset" style="display:none">↺ <span class="btn-reset-text">Reiniciar</span></button>
 
     <button id="btn-global" class="btn-global" title="Idioma / Translate">🌐<div class="translate-tooltip">Long-press or right-click → Translate to English</div></button>
     <button id="btn-ble" class="sensor-badge pending" title="Dispositivo Bluetooth">
@@ -794,7 +795,6 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
         Volver
       </button>
       <span class="config-title" id="measurements-title"></span>
-      <button id="btn-reset" class="btn-measurements-reset" title="Borrar mediciones" style="display:none">↺</button>
     </div>
 
     <div id="measurements-list"></div>
