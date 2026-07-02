@@ -1689,9 +1689,10 @@ function _showSessionInfoBanner() {
       </div>`;
     overlay.offsetWidth; // force reflow to trigger slide-up animation
     overlay.classList.add('open');
-    overlay.addEventListener('click', closeInline);
     const panelEl = overlay.querySelector('.session-panel');
     panelEl.addEventListener('click', e => e.stopPropagation());
+    // Delay backdrop-close listener to absorb the ghost click from the Editar button
+    setTimeout(() => overlay.addEventListener('click', closeInline), 350);
     const input = overlay.querySelector('.patient-name-input');
     const titleEl = overlay.querySelector('.session-panel-title');
     input.value = _patient || '';
