@@ -1257,6 +1257,7 @@ function showConfirmBanner(title, text, actionLabel, onConfirm) {
 }
 
 function promptClearSession() {
+  closeSessionPanel();
   showConfirmBanner(
     'Sesión en curso',
     `${_sessionLabel}<br>¿Borrar y empezar de nuevo?`,
@@ -1566,14 +1567,16 @@ function _bindUI() {
     );
   });
 
-  // Session icon (person) → confirm banner only when session is active
-  document.getElementById('btn-session').addEventListener('click', () => { if (_patient) promptClearSession(); });
+  // Session icon → panel / info banner
+  document.getElementById('btn-session').addEventListener('click', toggleSessionPanel);
 
-  // Patient name
-  document.getElementById('menu-patient-name').addEventListener('input', e => {
+  // Patient name (in session panel)
+  document.getElementById('patientName').addEventListener('input', e => {
     _patient = e.target.value.trim();
     _persistPatient();
   });
+
+  _setupSessionPanelDrag();
 
   // Global / translate btn
   document.getElementById('btn-global').addEventListener('click', () => {
@@ -1602,23 +1605,117 @@ function _persistPatient() {
 }
 
 function _syncPatientInputs(value) {
-  const menuInput = document.getElementById('menu-patient-name');
-  if (menuInput) menuInput.value = value;
+  const input = document.getElementById('patientName');
+  if (input) input.value = value;
 }
 
 function _renderSessionState() {
   const active = !!_patient;
   const btn = document.getElementById('btn-session');
   if (btn) btn.classList.toggle('active', active);
-  const clearBtn = document.getElementById('sessionPanelClear');
-  if (clearBtn) clearBtn.style.display = active ? 'flex' : 'none';
   const date = _sessionDate || new Date().toLocaleDateString('es-ES');
-  _sessionLabel = active
-    ? `${_patient} · ${date}`
-    : '';
+  _sessionLabel = active ? `${_patient} · ${date}` : '';
+  const panel = document.getElementById('sessionPanel');
+  const panelTitle = document.getElementById('sessionPanelTitle');
+  if (panel) panel.classList.toggle('has-session', active);
+  if (panelTitle) panelTitle.textContent = active ? _sessionLabel : 'Sin sesión activa';
   const resetBtn = document.getElementById('btn-reset');
   if (resetBtn) resetBtn.style.display = _savedResults.length > 0 ? '' : 'none';
   _renderGlobalExport();
+}
+
+function _openSessionSheet() {
+  const overlay = document.getElementById('sessionPanelOverlay');
+  if (!overlay || overlay.classList.contains('open')) return;
+  overlay.classList.add('open');
+  lockBodyScroll();
+  setTimeout(() => document.getElementById('patientName')?.focus(), 60);
+}
+
+function closeSessionPanel() {
+  const panel = document.getElementById('sessionPanel');
+  const overlay = document.getElementById('sessionPanelOverlay');
+  const wasOpen = overlay?.classList.contains('open');
+  overlay?.classList.remove('open');
+  if (wasOpen) unlockBodyScroll();
+  if (panel) { panel.style.transition = ''; panel.style.transform = ''; }
+}
+
+function toggleSessionPanel() {
+  const overlay = document.getElementById('sessionPanelOverlay');
+  if (!overlay) return;
+  if (overlay.classList.contains('open')) { closeSessionPanel(); return; }
+  if (_patient) {
+    _showSessionInfoBanner();
+  } else {
+    _openSessionSheet();
+  }
+}
+
+function _showSessionInfoBanner() {
+  const existing = document.getElementById('sessionInfoBanner');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-banner';
+  overlay.id = 'sessionInfoBanner';
+  overlay.innerHTML = `
+    <div class="confirm-box">
+      <div class="confirm-box-title">Sesión en curso</div>
+      <div class="confirm-box-text">${_sessionLabel}</div>
+      <div class="confirm-box-btns" style="justify-content:stretch;gap:0.5rem;">
+        <button class="confirm-btn-cancel" id="sib-cancel" style="flex:1;font-size:0.8rem;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;border-color:transparent;color:var(--text3);"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l9 9M11 2L2 11"/></svg> Cancelar</button>
+        <button class="confirm-btn-ok" id="sib-edit" style="flex:1;font-size:0.8rem;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2.5l2 2-6 6H3v-2.5l6-6z"/></svg> Editar</button>
+        <button class="confirm-btn-cancel" id="sib-delete" style="flex:1;font-size:0.8rem;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;color:var(--red);border-color:var(--red);"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h9M5 4V2h3v2M3.5 4l.5 7h5l.5-7"/></svg> Borrar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  lockBodyScroll();
+  const dismiss = () => { overlay.remove(); unlockBodyScroll(); };
+  document.getElementById('sib-cancel').onclick = dismiss;
+  document.getElementById('sib-edit').onclick   = () => { dismiss(); _openSessionSheet(); };
+  document.getElementById('sib-delete').onclick = () => { dismiss(); promptClearSession(); };
+}
+
+function _setupSessionPanelDrag() {
+  const panel = document.getElementById('sessionPanel');
+  if (!panel) return;
+  const EASE = 'transform 0.3s cubic-bezier(0.32,0.72,0,1)';
+  let startY = 0, startTime = 0, dragging = false, delta = 0, snapTimer = null;
+  let vvHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      const newHeight = window.visualViewport.height;
+      if (dragging) startY += newHeight - vvHeight;
+      vvHeight = newHeight;
+    });
+  }
+  panel.addEventListener('touchstart', e => {
+    if (window.innerWidth > 768) return;
+    if (e.touches[0].clientY - panel.getBoundingClientRect().top > 72) return;
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    startY = e.touches[0].clientY; startTime = Date.now(); delta = 0; dragging = true;
+    clearTimeout(snapTimer); panel.style.transition = 'none';
+  }, { passive: true });
+  panel.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    delta = Math.max(0, e.touches[0].clientY - startY);
+    panel.style.transform = delta > 0 ? `translateY(${delta}px)` : 'translateY(0)';
+  }, { passive: true });
+  function onRelease() {
+    if (!dragging) return;
+    dragging = false;
+    const velocity = delta / (Date.now() - startTime);
+    if (delta > 80 || velocity > 0.3) {
+      panel.style.transition = EASE;
+      panel.style.transform = 'translateY(110%)';
+      setTimeout(() => { panel.style.transition = 'none'; closeSessionPanel(); panel.style.transform = ''; panel.style.transition = ''; }, 300);
+    } else {
+      panel.style.transition = EASE; panel.style.transform = 'translateY(0)';
+      snapTimer = setTimeout(() => { panel.style.transform = ''; panel.style.transition = ''; }, 310);
+    }
+  }
+  panel.addEventListener('touchend', onRelease, { passive: true });
+  panel.addEventListener('touchcancel', () => { if (!dragging) return; dragging = false; panel.style.transform = ''; panel.style.transition = ''; }, { passive: true });
 }
 
 // ── Test routing ──────────────────────────────────────────────────────────────
