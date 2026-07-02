@@ -1669,7 +1669,14 @@ function _showSessionInfoBanner() {
   const dismiss = () => overlay.remove();
   overlay.querySelector('#sib-cancel').onclick = dismiss;
   overlay.querySelector('#sib-edit').onclick   = () => { dismiss(); _openSessionSheet(); };
-  overlay.querySelector('#sib-delete').onclick = () => { dismiss(); setTimeout(() => promptClearSession(), 350); };
+  overlay.querySelector('#sib-delete').onclick = () => {
+    dismiss();
+    promptClearSession();
+    const shield = document.createElement('div');
+    shield.style.cssText = 'position:fixed;inset:0;z-index:10000;';
+    document.body.appendChild(shield);
+    setTimeout(() => shield.remove(), 350);
+  };
 }
 
 function _setupSessionPanelDrag() {
