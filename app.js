@@ -1566,8 +1566,8 @@ function _bindUI() {
     );
   });
 
-  // Session icon (person) → confirm banner
-  document.getElementById('btn-session').addEventListener('click', promptClearSession);
+  // Session icon (person) → confirm banner only when session is active
+  document.getElementById('btn-session').addEventListener('click', () => { if (_patient) promptClearSession(); });
 
   // Patient name
   document.getElementById('menu-patient-name').addEventListener('input', e => {
@@ -1610,6 +1610,8 @@ function _renderSessionState() {
   const active = !!_patient;
   const btn = document.getElementById('btn-session');
   if (btn) btn.classList.toggle('active', active);
+  const clearBtn = document.getElementById('sessionPanelClear');
+  if (clearBtn) clearBtn.style.display = active ? 'flex' : 'none';
   const date = _sessionDate || new Date().toLocaleDateString('es-ES');
   _sessionLabel = active
     ? `${_patient} · ${date}`

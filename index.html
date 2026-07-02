@@ -38,9 +38,12 @@ html,body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif
 .logo-sub-initial{display:none;}
 .header-right{display:flex;align-items:center;gap:.5rem;}
 
-/* session btn — hidden until active */
-.session-btn{display:none;background:none;border:none;cursor:pointer;color:var(--accent);padding:6px;flex-shrink:0;}
-.session-btn.active{display:flex;align-items:center;justify-content:center;}
+/* session btn — always visible, colored when active */
+.session-btn{display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--text3);padding:6px;flex-shrink:0;transition:color .2s;}
+.session-btn.active{color:var(--accent);}
+/* trash btn inline with patient name input */
+.session-panel-clear{display:none;background:none;border:1px solid var(--red);border-radius:8px;padding:8px;cursor:pointer;color:var(--red);flex-shrink:0;transition:opacity .2s;align-items:center;justify-content:center;align-self:stretch;}
+.session-panel-clear:hover{opacity:0.7;}
 
 /* global / translate btn */
 .btn-global{position:relative;background:transparent;border:none;color:var(--text3);font-size:1rem;cursor:pointer;padding:4px 8px;border-radius:6px;transition:color .2s;line-height:1;flex-shrink:0;}
@@ -460,7 +463,10 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 
     <div class="patient-name-field">
       <label class="patient-name-label" for="menu-patient-name">Paciente</label>
-      <input id="menu-patient-name" class="patient-name-input" type="text" placeholder="Nombre (opcional)" autocomplete="off">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input id="menu-patient-name" class="patient-name-input" style="flex:1;" type="text" placeholder="Nombre (opcional)" autocomplete="off">
+        <button class="session-panel-clear" id="sessionPanelClear" onclick="promptClearSession()" title="Borrar sesión"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h9M5 4V2h3v2M3.5 4l.5 7h5l.5-7"/></svg></button>
+      </div>
     </div>
 
     <div class="summary-card" id="globalExportCard" style="display:none">
