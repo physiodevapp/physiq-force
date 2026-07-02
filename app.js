@@ -1621,20 +1621,7 @@ function _showSessionState(state) {
     ? `${_patient} · ${_sessionDate || new Date().toLocaleDateString('es-ES')}` : '');
   panel.classList.toggle('has-session', hasSession);
 
-  if (state === 'info') {
-    panel.innerHTML = `
-      <div class="session-panel-handle"></div>
-      <div class="session-panel-title">${label}</div>
-      <div class="confirm-box-btns" style="justify-content:stretch;gap:.5rem;margin-top:1.2rem;">
-        <button class="confirm-btn-cancel" id="sib-cancel" style="flex:1;font-size:.8rem;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;border-color:transparent;color:var(--text3);"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l9 9M11 2L2 11"/></svg> Cancelar</button>
-        <button class="confirm-btn-ok" id="sib-edit" style="flex:1;font-size:.8rem;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2.5l2 2-6 6H3v-2.5l6-6z"/></svg> Editar</button>
-        <button class="confirm-btn-cancel" id="sib-delete" style="flex:1;font-size:.8rem;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;color:var(--red);border-color:var(--red);"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h9M5 4V2h3v2M3.5 4l.5 7h5l.5-7"/></svg> Borrar</button>
-      </div>`;
-    panel.querySelector('#sib-cancel').onclick = closeSessionPanel;
-    panel.querySelector('#sib-edit').onclick   = () => _showSessionState('edit');
-    panel.querySelector('#sib-delete').onclick = () => _showSessionState('delete');
-
-  } else if (state === 'edit') {
+  if (state === 'edit') {
     panel.innerHTML = `
       <div class="session-panel-handle"></div>
       <div class="session-panel-title" id="sessionPanelTitle">${label || 'Sin sesión activa'}</div>
@@ -1671,7 +1658,7 @@ function _showSessionState(state) {
         <button class="confirm-btn-cancel" id="confirmCancel">Cancelar</button>
         <button class="confirm-btn-ok" id="confirmAction">Borrar sesión</button>
       </div>`;
-    panel.querySelector('#confirmCancel').onclick = () => _showSessionState(hasSession ? 'info' : 'edit');
+    panel.querySelector('#confirmCancel').onclick = () => _showSessionState('edit');
     panel.querySelector('#confirmAction').onclick = () => {
       closeSessionPanel();
       _softReset();
@@ -1691,7 +1678,7 @@ function toggleSessionPanel() {
   const overlay = document.getElementById('sessionPanelOverlay');
   if (!overlay) return;
   if (overlay.classList.contains('open')) { closeSessionPanel(); return; }
-  _showSessionState(_patient ? 'info' : 'edit');
+  _showSessionState('edit');
   overlay.classList.add('open');
 }
 
