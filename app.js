@@ -1628,16 +1628,13 @@ function _openSessionSheet() {
   const overlay = document.getElementById('sessionPanelOverlay');
   if (!overlay || overlay.classList.contains('open')) return;
   overlay.classList.add('open');
-  lockBodyScroll();
   setTimeout(() => document.getElementById('patientName')?.focus(), 60);
 }
 
 function closeSessionPanel() {
   const panel = document.getElementById('sessionPanel');
   const overlay = document.getElementById('sessionPanelOverlay');
-  const wasOpen = overlay?.classList.contains('open');
   overlay?.classList.remove('open');
-  if (wasOpen) unlockBodyScroll();
   if (panel) { panel.style.transition = ''; panel.style.transform = ''; }
 }
 
