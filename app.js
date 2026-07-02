@@ -1257,16 +1257,9 @@ function showConfirmBanner(title, text, actionLabel, onConfirm) {
 }
 
 function promptClearSession() {
-  closeSessionPanel();
-  showConfirmBanner(
-    'Sesión en curso',
-    `${_sessionLabel}<br>¿Borrar y empezar de nuevo?`,
-    'Borrar sesión',
-    () => {
-      _softReset();
-      clearSession().then(() => _sessionCh.postMessage({ type: 'SESSION_CLEAR' }));
-    }
-  );
+  _showSessionState('delete');
+  const overlay = document.getElementById('sessionPanelOverlay');
+  if (overlay && !overlay.classList.contains('open')) overlay.classList.add('open');
 }
 
 // ── Translate banner ──────────────────────────────────────────────────────────
@@ -1569,12 +1562,8 @@ function _bindUI() {
 
   // Session icon → panel / info banner
   document.getElementById('btn-session').addEventListener('click', toggleSessionPanel);
-
-  // Patient name (in session panel)
-  document.getElementById('patientName').addEventListener('input', e => {
-    _patient = e.target.value.trim();
-    _persistPatient();
-  });
+  document.getElementById('sessionPanelOverlay').addEventListener('click', closeSessionPanel);
+  document.getElementById('sessionPanel').addEventListener('click', e => e.stopPropagation());
 
   _setupSessionPanelDrag();
 
@@ -1624,16 +1613,76 @@ function _renderSessionState() {
   _renderGlobalExport();
 }
 
-function _openSessionSheet() {
-  const overlay = document.getElementById('sessionPanelOverlay');
-  if (!overlay || overlay.classList.contains('open')) return;
-  overlay.classList.add('open');
-  setTimeout(() => document.getElementById('patientName')?.focus(), 60);
+function _showSessionState(state) {
+  const panel = document.getElementById('sessionPanel');
+  if (!panel) return;
+  const hasSession = !!_patient;
+  const label = _sessionLabel || (hasSession
+    ? `${_patient} · ${_sessionDate || new Date().toLocaleDateString('es-ES')}` : '');
+  panel.classList.toggle('has-session', hasSession);
+
+  if (state === 'info') {
+    panel.innerHTML = `
+      <div class="session-panel-handle"></div>
+      <div class="session-panel-title">${label}</div>
+      <div class="confirm-box-btns" style="justify-content:stretch;gap:.5rem;margin-top:1.2rem;">
+        <button class="confirm-btn-cancel" id="sib-cancel" style="flex:1;font-size:.8rem;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;border-color:transparent;color:var(--text3);"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l9 9M11 2L2 11"/></svg> Cancelar</button>
+        <button class="confirm-btn-ok" id="sib-edit" style="flex:1;font-size:.8rem;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2.5l2 2-6 6H3v-2.5l6-6z"/></svg> Editar</button>
+        <button class="confirm-btn-cancel" id="sib-delete" style="flex:1;font-size:.8rem;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;color:var(--red);border-color:var(--red);"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h9M5 4V2h3v2M3.5 4l.5 7h5l.5-7"/></svg> Borrar</button>
+      </div>`;
+    panel.querySelector('#sib-cancel').onclick = closeSessionPanel;
+    panel.querySelector('#sib-edit').onclick   = () => _showSessionState('edit');
+    panel.querySelector('#sib-delete').onclick = () => _showSessionState('delete');
+
+  } else if (state === 'edit') {
+    panel.innerHTML = `
+      <div class="session-panel-handle"></div>
+      <div class="session-panel-title" id="sessionPanelTitle">${label || 'Sin sesión activa'}</div>
+      <div class="patient-name-field">
+        <label class="patient-name-label">Paciente</label>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input class="patient-name-input" type="text" id="patientName" style="flex:1;" placeholder="Nombre (opcional)" autocomplete="off">
+          <button class="session-panel-clear" id="sessionPanelClear" title="Borrar sesión">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h9M5 4V2h3v2M3.5 4l.5 7h5l.5-7"/></svg>
+          </button>
+        </div>
+      </div>`;
+    const input = panel.querySelector('#patientName');
+    input.value = _patient || '';
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') closeSessionPanel(); });
+    input.addEventListener('input', () => {
+      _patient = input.value.trim();
+      const titleEl = panel.querySelector('#sessionPanelTitle');
+      if (titleEl) titleEl.textContent = _patient
+        ? `${_patient} · ${_sessionDate || new Date().toLocaleDateString('es-ES')}`
+        : 'Sin sesión activa';
+      panel.classList.toggle('has-session', !!_patient);
+      _persistPatient();
+    });
+    panel.querySelector('#sessionPanelClear').onclick = () => _showSessionState('delete');
+    setTimeout(() => input.focus(), 60);
+
+  } else if (state === 'delete') {
+    panel.innerHTML = `
+      <div class="session-panel-handle"></div>
+      <div class="session-panel-title">${label || 'Sin sesión activa'}</div>
+      <div class="confirm-box-text" style="margin:12px 0 0;">¿Borrar y empezar de nuevo?</div>
+      <div class="confirm-box-btns" style="margin-top:1rem;">
+        <button class="confirm-btn-cancel" id="confirmCancel">Cancelar</button>
+        <button class="confirm-btn-ok" id="confirmAction">Borrar sesión</button>
+      </div>`;
+    panel.querySelector('#confirmCancel').onclick = () => _showSessionState(hasSession ? 'info' : 'edit');
+    panel.querySelector('#confirmAction').onclick = () => {
+      closeSessionPanel();
+      _softReset();
+      clearSession().then(() => _sessionCh.postMessage({ type: 'SESSION_CLEAR' }));
+    };
+  }
 }
 
 function closeSessionPanel() {
-  const overlay = document.querySelector('.session-panel-overlay.open');
-  const panel = overlay?.querySelector('.session-panel');
+  const overlay = document.getElementById('sessionPanelOverlay');
+  const panel = document.getElementById('sessionPanel');
   overlay?.classList.remove('open');
   if (panel) { panel.style.transition = ''; panel.style.transform = ''; }
 }
@@ -1642,121 +1691,17 @@ function toggleSessionPanel() {
   const overlay = document.getElementById('sessionPanelOverlay');
   if (!overlay) return;
   if (overlay.classList.contains('open')) { closeSessionPanel(); return; }
-  if (_patient) {
-    _showSessionInfoBanner();
-  } else {
-    _openSessionSheet();
-  }
+  _showSessionState(_patient ? 'info' : 'edit');
+  overlay.classList.add('open');
 }
 
-function _showSessionInfoBanner() {
-  const existing = document.getElementById('sessionInfoBanner');
-  if (existing) existing.remove();
-  const overlay = document.createElement('div');
-  overlay.className = 'confirm-banner';
-  overlay.id = 'sessionInfoBanner';
-  overlay.innerHTML = `
-    <div class="confirm-box">
-      <div class="confirm-box-title">Sesión en curso</div>
-      <div class="confirm-box-text">${_sessionLabel}</div>
-      <div class="confirm-box-btns" style="justify-content:stretch;gap:0.5rem;">
-        <button class="confirm-btn-cancel" id="sib-cancel" style="flex:1;font-size:0.8rem;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;border-color:transparent;color:var(--text3);"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l9 9M11 2L2 11"/></svg> Cancelar</button>
-        <button class="confirm-btn-ok" id="sib-edit" style="flex:1;font-size:0.8rem;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2.5l2 2-6 6H3v-2.5l6-6z"/></svg> Editar</button>
-        <button class="confirm-btn-cancel" id="sib-delete" style="flex:1;font-size:0.8rem;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;color:var(--red);border-color:var(--red);"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h9M5 4V2h3v2M3.5 4l.5 7h5l.5-7"/></svg> Borrar</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  const dismiss = () => overlay.remove();
-  overlay.querySelector('#sib-cancel').onclick = dismiss;
-  overlay.querySelector('#sib-edit').onclick = () => {
-    const hasSession = !!_patient;
-    const closeInline = () => overlay.remove();
-    overlay.removeAttribute('id');
-    overlay.className = 'session-panel-overlay';
-    overlay.innerHTML = `
-      <div class="session-panel${hasSession ? ' has-session' : ''}">
-        <div class="session-panel-handle"></div>
-        <div class="session-panel-title">${hasSession ? _sessionLabel : 'Sin sesión activa'}</div>
-        <div class="patient-name-field">
-          <label class="patient-name-label">Paciente</label>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <input class="patient-name-input" type="text" style="flex:1;" placeholder="Nombre (opcional)" autocomplete="off">
-            <button class="session-panel-clear" title="Borrar sesión">
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h9M5 4V2h3v2M3.5 4l.5 7h5l.5-7"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>`;
-    overlay.offsetWidth; // force reflow to trigger slide-up animation
-    overlay.classList.add('open');
-    const panelEl = overlay.querySelector('.session-panel');
-    panelEl.addEventListener('click', e => e.stopPropagation());
-    // Delay backdrop-close listener to absorb the ghost click from the Editar button
-    setTimeout(() => overlay.addEventListener('click', closeInline), 350);
-    const input = overlay.querySelector('.patient-name-input');
-    const titleEl = overlay.querySelector('.session-panel-title');
-    input.value = _patient || '';
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') closeInline(); });
-    input.addEventListener('input', () => {
-      _patient = input.value.trim();
-      titleEl.textContent = _patient
-        ? `${_patient} · ${_sessionDate || new Date().toLocaleDateString('es-ES')}`
-        : 'Sin sesión activa';
-      panelEl.classList.toggle('has-session', !!_patient);
-      _persistPatient();
-    });
-    overlay.querySelector('.session-panel-clear').addEventListener('click', () => {
-      overlay.className = 'confirm-banner';
-      overlay.innerHTML = `
-        <div class="confirm-box">
-          <div class="confirm-box-title">Sesión en curso</div>
-          <div class="confirm-box-text">${_sessionLabel}<br>¿Borrar y empezar de nuevo?</div>
-          <div class="confirm-box-btns">
-            <button class="confirm-btn-cancel" id="confirmCancel">Cancelar</button>
-            <button class="confirm-btn-ok" id="confirmAction">Borrar sesión</button>
-          </div>
-        </div>`;
-      const box = overlay.querySelector('.confirm-box');
-      box.style.pointerEvents = 'none';
-      setTimeout(() => { box.style.pointerEvents = ''; }, 350);
-      overlay.querySelector('#confirmCancel').onclick = () => overlay.remove();
-      overlay.querySelector('#confirmAction').onclick = () => {
-        overlay.remove();
-        _softReset();
-        clearSession().then(() => _sessionCh.postMessage({ type: 'SESSION_CLEAR' }));
-      };
-    });
-    _setupSessionPanelDrag(panelEl, closeInline);
-    setTimeout(() => input.focus(), 60);
-  };
-  overlay.querySelector('#sib-delete').onclick = () => {
-    const box = overlay.querySelector('.confirm-box');
-    box.innerHTML = `
-      <div class="confirm-box-title">Sesión en curso</div>
-      <div class="confirm-box-text">${_sessionLabel}<br>¿Borrar y empezar de nuevo?</div>
-      <div class="confirm-box-btns">
-        <button class="confirm-btn-cancel" id="confirmCancel">Cancelar</button>
-        <button class="confirm-btn-ok" id="confirmAction">Borrar sesión</button>
-      </div>`;
-    box.style.pointerEvents = 'none';
-    setTimeout(() => { box.style.pointerEvents = ''; }, 350);
-    overlay.querySelector('#confirmCancel').onclick = () => overlay.remove();
-    overlay.querySelector('#confirmAction').onclick = () => {
-      overlay.remove();
-      _softReset();
-      clearSession().then(() => _sessionCh.postMessage({ type: 'SESSION_CLEAR' }));
-    };
-  };
-}
-
-function _setupSessionPanelDrag(panelEl, closeCallback) {
-  const panel = panelEl || document.getElementById('sessionPanel');
+function _setupSessionPanelDrag() {
+  const panel = document.getElementById('sessionPanel');
   if (!panel) return;
-  const close = closeCallback || closeSessionPanel;
   const EASE = 'transform 0.3s cubic-bezier(0.32,0.72,0,1)';
   let startY = 0, startTime = 0, dragging = false, delta = 0, snapTimer = null;
   let vvHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  if (!panelEl && window.visualViewport) {
+  if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', () => {
       const newHeight = window.visualViewport.height;
       if (dragging) startY += newHeight - vvHeight;
@@ -1782,7 +1727,7 @@ function _setupSessionPanelDrag(panelEl, closeCallback) {
     if (delta > 80 || velocity > 0.3) {
       panel.style.transition = EASE;
       panel.style.transform = 'translateY(110%)';
-      setTimeout(() => { panel.style.transition = 'none'; close(); panel.style.transform = ''; panel.style.transition = ''; }, 300);
+      setTimeout(() => { panel.style.transition = 'none'; closeSessionPanel(); panel.style.transform = ''; panel.style.transition = ''; }, 300);
     } else {
       panel.style.transition = EASE; panel.style.transform = 'translateY(0)';
       snapTimer = setTimeout(() => { panel.style.transform = ''; panel.style.transition = ''; }, 310);
