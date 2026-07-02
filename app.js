@@ -1669,11 +1669,10 @@ function _showSessionInfoBanner() {
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  lockBodyScroll();
-  const dismiss = () => { overlay.remove(); unlockBodyScroll(); };
-  document.getElementById('sib-cancel').onclick = dismiss;
-  document.getElementById('sib-edit').onclick   = () => { dismiss(); _openSessionSheet(); };
-  document.getElementById('sib-delete').onclick = () => { dismiss(); promptClearSession(); };
+  const dismiss = () => overlay.remove();
+  overlay.querySelector('#sib-cancel').onclick = dismiss;
+  overlay.querySelector('#sib-edit').onclick   = () => { dismiss(); _openSessionSheet(); };
+  overlay.querySelector('#sib-delete').onclick = () => { dismiss(); promptClearSession(); };
 }
 
 function _setupSessionPanelDrag() {
