@@ -1670,12 +1670,22 @@ function _showSessionInfoBanner() {
   overlay.querySelector('#sib-cancel').onclick = dismiss;
   overlay.querySelector('#sib-edit').onclick   = () => { dismiss(); _openSessionSheet(); };
   overlay.querySelector('#sib-delete').onclick = () => {
-    dismiss();
-    promptClearSession();
-    const shield = document.createElement('div');
-    shield.style.cssText = 'position:fixed;inset:0;z-index:10000;';
-    document.body.appendChild(shield);
-    setTimeout(() => shield.remove(), 350);
+    const box = overlay.querySelector('.confirm-box');
+    box.innerHTML = `
+      <div class="confirm-box-title">Sesión en curso</div>
+      <div class="confirm-box-text">${_sessionLabel}<br>¿Borrar y empezar de nuevo?</div>
+      <div class="confirm-box-btns">
+        <button class="confirm-btn-cancel" id="confirmCancel">Cancelar</button>
+        <button class="confirm-btn-ok" id="confirmAction">Borrar sesión</button>
+      </div>`;
+    box.style.pointerEvents = 'none';
+    setTimeout(() => { box.style.pointerEvents = ''; }, 350);
+    overlay.querySelector('#confirmCancel').onclick = () => overlay.remove();
+    overlay.querySelector('#confirmAction').onclick = () => {
+      overlay.remove();
+      _softReset();
+      clearSession().then(() => _sessionCh.postMessage({ type: 'SESSION_CLEAR' }));
+    };
   };
 }
 
