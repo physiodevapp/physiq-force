@@ -919,19 +919,8 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-bac
 </main>
 
 <!-- ── Panel de sesión (bottom sheet / dialog centrado) ─────────────────────── -->
-<div class="session-panel-overlay" id="sessionPanelOverlay" onclick="closeSessionPanel()">
-  <div class="session-panel" id="sessionPanel" onclick="event.stopPropagation()">
-    <div class="session-panel-handle"></div>
-    <div class="session-panel-title" id="sessionPanelTitle">Sin sesión activa</div>
-    <div class="patient-name-field">
-      <label class="patient-name-label" for="patientName">Paciente</label>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <input class="patient-name-input" type="text" id="patientName" style="flex:1;" placeholder="Nombre (opcional)"
-          autocomplete="off" onkeydown="if(event.key==='Enter') closeSessionPanel()">
-        <button class="session-panel-clear" id="sessionPanelClear" onclick="promptClearSession()" title="Borrar sesión"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h9M5 4V2h3v2M3.5 4l.5 7h5l.5-7"/></svg></button>
-      </div>
-    </div>
-  </div>
+<div class="session-panel-overlay" id="sessionPanelOverlay">
+  <div class="session-panel" id="sessionPanel"></div>
 </div>
 
 <!-- ── BLE dialog ───────────────────────────────────────────────────────────── -->
