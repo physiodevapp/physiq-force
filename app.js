@@ -1628,16 +1628,13 @@ function _openSessionSheet() {
   const overlay = document.getElementById('sessionPanelOverlay');
   if (!overlay || overlay.classList.contains('open')) return;
   overlay.classList.add('open');
-  lockBodyScroll();
   setTimeout(() => document.getElementById('patientName')?.focus(), 60);
 }
 
 function closeSessionPanel() {
   const panel = document.getElementById('sessionPanel');
   const overlay = document.getElementById('sessionPanelOverlay');
-  const wasOpen = overlay?.classList.contains('open');
   overlay?.classList.remove('open');
-  if (wasOpen) unlockBodyScroll();
   if (panel) { panel.style.transition = ''; panel.style.transform = ''; }
 }
 
@@ -1672,7 +1669,7 @@ function _showSessionInfoBanner() {
   const dismiss = () => overlay.remove();
   overlay.querySelector('#sib-cancel').onclick = dismiss;
   overlay.querySelector('#sib-edit').onclick   = () => { dismiss(); _openSessionSheet(); };
-  overlay.querySelector('#sib-delete').onclick = () => { dismiss(); promptClearSession(); };
+  overlay.querySelector('#sib-delete').onclick = () => { dismiss(); setTimeout(() => promptClearSession(), 350); };
 }
 
 function _setupSessionPanelDrag() {
