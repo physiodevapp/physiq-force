@@ -1239,6 +1239,8 @@ function _loadSession() {
 
 // ── Confirm banner ────────────────────────────────────────────────────────────
 function showConfirmBanner(title, text, actionLabel, onConfirm) {
+  const existing = document.querySelector('.confirm-banner');
+  if (existing) existing.remove();
   const overlay = document.createElement('div');
   overlay.className = 'confirm-banner';
   overlay.innerHTML = `
@@ -1246,8 +1248,8 @@ function showConfirmBanner(title, text, actionLabel, onConfirm) {
       <div class="confirm-box-title">${title}</div>
       <div class="confirm-box-text">${text}</div>
       <div class="confirm-box-btns">
-        <button class="confirm-btn-cancel" id="confirmCancel">Cancelar</button>
-        <button class="confirm-btn-ok"     id="confirmAction">${actionLabel}</button>
+        <button class="confirm-btn-cancel" id="confirmCancel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancelar</button>
+        <button class="confirm-btn-ok"     id="confirmAction"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg> ${actionLabel}</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
