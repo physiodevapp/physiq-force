@@ -6,7 +6,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 PhysiQ-Force is a Web Bluetooth force measurement app for physiotherapy. It connects to a Progressor device via the Web Bluetooth API to measure muscle contraction force and saves results to the shared PhysiQ session.
 
-**Deployment:** GitHub Pages — push to `main` deploys automatically. The hub (`physiodevapp.github.io/physiq/`) is the primary entry point; this app is also accessible standalone.
+**Deployment:** Push to `main` triggers `deploy-to-hub.yml`, which copies the app files into the central PhysiQ hub repo (`physiodevapp/physiq`). The hub's own GitHub Pages deployment serves the app at `physiodevapp.github.io/physiq/force/`. There is no standalone Pages deployment for this repo.
 
 ## Development
 
