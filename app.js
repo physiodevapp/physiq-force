@@ -2503,7 +2503,13 @@ function _renderMeasurementsList(type = null) {
 
     card.querySelector('.mcard-delete').addEventListener('click', e => {
       e.stopPropagation();
-      _deleteSavedResult(m.timestamp);
+      const label = m.label ?? `Medición ${i + 1}`;
+      showConfirmBanner(
+        'Borrar resultado',
+        `Se eliminará el resultado de ${label}.`,
+        'Borrar',
+        () => _deleteSavedResult(m.timestamp)
+      );
     });
     list.appendChild(card);
   });
